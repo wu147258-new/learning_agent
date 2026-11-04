@@ -1,39 +1,41 @@
-name: Build and publish textbook PDF
+name: Build and validate textbook
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'book/Agent_Algorithm_Textbook_2026.pdf'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install LaTeX, Pandoc and Chinese fonts
+      - name: Install Pandoc, XeLaTeX and Chinese fonts
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures fonts-noto-cjk
-      - name: Test offline sample
-        run: python3 examples/toy_agent.py
-      - name: Generate PDF
+      - name: Check offline experiments
+        run: |
+          python3 examples/toy_agent.py
+          python3 examples/markov_control.py
+          python3 examples/evaluate_agents.py
+      - name: Generate PDF from chapter sources
         run: bash scripts/build_pdf.sh
-      - name: Publish compiled textbook to repository
+      - name: Publish regenerated PDF and manuscript
+        if: github.event_name != 'pull_request'
         run: |
           cp dist/Agent_Algorithm_Textbook_2026.pdf book/Agent_Algorithm_Textbook_2026.pdf
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add book/Agent_Algorithm_Textbook_2026.pdf
+          git add book/source.md book/Agent_Algorithm_Textbook_2026.pdf
           if ! git diff --cached --quiet; then
-            git commit -m "build: publish compiled textbook PDF [skip ci]"
+            git commit -m "build: publish validated manuscript and PDF [skip ci]"
             git push
           fi
-      - name: Upload downloadable PDF artifact
+      - name: Upload PDF artifact
         uses: actions/upload-artifact@v4
         with:
           name: Agent-Algorithm-Textbook-PDF
