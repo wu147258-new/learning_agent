@@ -125,7 +125,7 @@ def summarize(records: list[TaskResult]) -> dict:
 
 def self_test():
     assert wilson_interval(0, 10)[0] == 0
-    assert wilson_interval(10, 10)[1] == 1
+    assert math.isclose(wilson_interval(10, 10)[1], 1.0, abs_tol=1e-12)
     assert math.isclose(pass_at_k(10, 3, 2), 1 - (7*6)/(10*9))
     assert pass_at_k(10, 0, 5) == 0
     assert pass_at_k(10, 8, 5) == 1
