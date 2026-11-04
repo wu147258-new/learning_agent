@@ -2,14 +2,14 @@
 
 ## v0.2 数学基础（P0）
 
-- [ ] 马尔可夫性质、转移矩阵、Chapman–Kolmogorov等式、平稳分布。
-- [ ] 从条件期望与全期望公式推导Bellman递推及其假设。
+- [x] 马尔可夫性质、转移矩阵、Chapman–Kolmogorov等式、平稳分布（第20章、PR #3）。
+- [x] 从条件期望与全期望公式推导Bellman递推及其假设（第20章、PR #3）。
 - [ ] 蒙特卡洛估计、方差和置信区间，20题附完整解答。
 
 ## v0.3 模型训练（P0）
 
-- [ ] 注意力机制的矩阵维度、反向传播和复杂度。
-- [ ] 小型Transformer的PyTorch实现。
+- [x] 注意力机制的矩阵维度、反向传播和复杂度（第22章、PR #4）。
+- [x] 小型Transformer的PyTorch实现（PR #4、PyTorch CI通过）。
 - [ ] SFT、DPO和强化学习的对照实验。
 
 ## v0.4 Agent算法（P1）
@@ -31,8 +31,11 @@
 
 ## 进行中的实质修订
 
-- [ ] [PR #3](https://github.com/wu147258-new/learning_agent/pull/3)：新增第20章（马尔可夫链与随机控制）和第21章（配对统计评测），等待CI编译与人工校验。
+- [x] [PR #3](https://github.com/wu147258-new/learning_agent/pull/3)：第20、21章和离线实验，CI通过且已合并。
+- [x] [PR #4](https://github.com/wu147258-new/learning_agent/pull/4)：第22章、小型Transformer与PyTorch CI通过且已合并。
+- [ ] [PR #5](https://github.com/wu147258-new/learning_agent/pull/5)：第23章、SFT/DPO/RL数学实验，正在验收。
 - [ ] 为每章建立规范的标题、可检验前提、反例、运行代码、习题解答与参考文献。
+- [ ] 修正手写编号与Pandoc自动编号冲突；用结构化脚本检查Markdown与PDF。
 - [ ] 把训练算法的对照实验从描述升级为带固定数据、运行脚本与结果的实验。
 
 ## v1.0 不可跳过的发布条件
