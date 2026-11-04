@@ -16,14 +16,25 @@ jobs:
       - name: Install Pandoc, XeLaTeX and Chinese fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures fonts-noto-cjk
+          sudo apt-get install -y pandoc texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures fonts-noto-cjk poppler-utils
       - name: Check offline experiments
         run: |
           python3 examples/toy_agent.py
           python3 examples/markov_control.py
           python3 examples/evaluate_agents.py
+          python3 examples/beginner_cli.py self-test
+          python3 examples/foundation_algorithms.py
+          python3 examples/foundation_math.py
+          python3 scripts/check_heading_hierarchy.py
+          test "$(python3 examples/beginner_cli.py add 12 30)" = "42"
+          if python3 examples/beginner_cli.py add 12 invalid >/dev/null 2>&1; then
+            echo "Invalid CLI input must have nonzero exit status" >&2
+            exit 1
+          fi
       - name: Generate PDF from chapter sources
         run: bash scripts/build_pdf.sh
+      - name: Verify chapter/section TOC in compiled PDF
+        run: python3 scripts/check_heading_hierarchy.py --pdf dist/Agent_Algorithm_Textbook_2026.pdf
       - name: Publish regenerated PDF and manuscript
         if: github.event_name != 'pull_request'
         run: |
