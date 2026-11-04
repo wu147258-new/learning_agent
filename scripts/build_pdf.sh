@@ -5,7 +5,7 @@ mkdir -p "$ROOT/.build" "$ROOT/dist"
 # chapters/ is the only editable source of truth; rebuild the consolidated manuscript.
 CHAPTERS=(
   "00_front.md" "01_04.md" "05_08.md" "09_12.md"
-  "13_16.md" "17_19.md" "20_stochastic_control.md" "21_agent_eval.md" "appendix.md"
+  "13_16.md" "17_19.md" "20_stochastic_control.md" "21_agent_eval.md" "22_tiny_transformer.md" "appendix.md"
 )
 : > "$ROOT/book/source.md"
 for chapter in "${CHAPTERS[@]}"; do
