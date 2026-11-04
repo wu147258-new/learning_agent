@@ -39,7 +39,7 @@ $$
 
 $$p_{ij}\ge 0,\qquad \sum_{j\in\mathcal S}p_{ij}=1.$$
 
-这种矩阵称为行随机矩阵。设行向量 $\boldsymbol\mu_t$ 表示时刻 $t$ 的状态分布：
+这种矩阵称为行随机矩阵。设行向量 $\boldsymbol{\mu}_t$ 表示时刻 $t$ 的状态分布：
 
 $$\mu_t(j)=\mathbb P(X_t=j).$$
 
@@ -53,8 +53,8 @@ $$
 
 所以
 
-$$\boxed{\boldsymbol\mu_{t+1}=\boldsymbol\mu_tP,\qquad
-\boldsymbol\mu_t=\boldsymbol\mu_0P^t.}$$
+$$\boxed{\boldsymbol{\mu}_{t+1}=\boldsymbol{\mu}_tP,\qquad
+\boldsymbol{\mu}_t=\boldsymbol{\mu}_0P^t.}$$
 
 矩阵乘法不是为AI额外发明的记号，它正是把全概率公式批量写出。
 
@@ -63,12 +63,12 @@ $$\boxed{\boldsymbol\mu_{t+1}=\boldsymbol\mu_tP,\qquad
 令 $0$ 表示正常，$1$ 表示故障：
 
 $$P=\begin{pmatrix}0.8&0.2\\0.3&0.7\end{pmatrix},
-\qquad \boldsymbol\mu_0=(1,0).$$
+\qquad \boldsymbol{\mu}_0=(1,0).$$
 
 那么
 
 $$P^2=\begin{pmatrix}0.70&0.30\\0.45&0.55\end{pmatrix},\qquad
-\boldsymbol\mu_2=(0.70,0.30).$$
+\boldsymbol{\mu}_2=(0.70,0.30).$$
 
 第2步处于故障状态的概率为 $0.30$，不是“平均有0.3台机器故障”。这是一个单个随机系统在重复实验下的概率描述。
 
@@ -95,17 +95,17 @@ $$\boxed{p_{ij}^{(m+n)}=\sum_k p_{ik}^{(m)}p_{kj}^{(n)}}.$$
 
 ## 20.4 平稳分布、极限分布及区别
 
-概率行向量 $\boldsymbol\nu$ 若满足
+概率行向量 $\boldsymbol{\nu}$ 若满足
 
-$$\boldsymbol\nu P=\boldsymbol\nu,\qquad \nu_i\ge0,\quad\sum_i\nu_i=1,$$
+$$\boldsymbol{\nu} P=\boldsymbol{\nu},\qquad \nu_i\ge0,\quad\sum_i\nu_i=1,$$
 
-称为平稳分布。它的含义是：**如果初始分布已经是 $\boldsymbol\nu$，再走一步分布不变。**
+称为平稳分布。它的含义是：**如果初始分布已经是 $\boldsymbol{\nu}$，再走一步分布不变。**
 
-对于前例，设 $\boldsymbol\nu=(x,1-x)$。由第一列方程
+对于前例，设 $\boldsymbol{\nu}=(x,1-x)$。由第一列方程
 
 $$x=0.8x+0.3(1-x)$$
 
-得到 $x=0.6$，所以 $\boldsymbol\nu=(0.6,0.4)$。
+得到 $x=0.6$，所以 $\boldsymbol{\nu}=(0.6,0.4)$。
 
 但是“存在平稳分布”和“从任意初始分布收敛到它”是两件事。考虑
 
@@ -122,7 +122,7 @@ $$P_{\mathrm{flip}}=\begin{pmatrix}0&1\\1&0\end{pmatrix}.$$
 $$
 \mathbb E[C_t]
 =\sum_i c(i)\,\mu_t(i)
-=\boldsymbol\mu_t\mathbf c,
+=\boldsymbol{\mu}_t\mathbf c,
 $$
 
 其中 $\mathbf c$ 是成本列向量。
@@ -273,7 +273,7 @@ $$
 
 1. 验证转移矩阵每行和为1；
 2. 用矩阵乘法计算两步状态分布；
-3. 求出两状态示例的平稳分布并检验 $\boldsymbol\nu P=\boldsymbol\nu$；
+3. 求出两状态示例的平稳分布并检验 $\boldsymbol{\nu} P=\boldsymbol{\nu}$；
 4. 通过有限时域枚举比较检查和等待的成本；
 5. 使用固定随机种子进行蒙特卡洛采样，并比较样本均值与理论期望。
 
@@ -282,7 +282,7 @@ $$
 ## 本章习题
 
 1. 给出一个具有唯一平稳分布但从某个初始分布不收敛的两状态马尔可夫链，计算它的前四步分布并解释原因。
-2. 用全概率公式推导 $\boldsymbol\mu_{t+1}=\boldsymbol\mu_tP$，并解释为何不需要各个状态随机变量相互独立。
+2. 用全概率公式推导 $\boldsymbol{\mu}_{t+1}=\boldsymbol{\mu}_tP$，并解释为何不需要各个状态随机变量相互独立。
 3. 对上述机器检查例子，将检查成本改为 $k$，求所有使检查严格优于等待的 $k$。
 4. 说明 $\mathbb E[\sum_tC_t]=\sum_t\mathbb E[C_t]$ 在有限求和情形下所需的条件。
 5. 对有限状态、有限行动、折扣因子 $\gamma<1$ 的情形，证明 Bellman算子的无穷范数压缩不等式。
