@@ -1,0 +1,40 @@
+name: Build and publish textbook PDF
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'book/Agent_Algorithm_Textbook_2026.pdf'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install LaTeX, Pandoc and Chinese fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-pictures fonts-noto-cjk
+      - name: Test offline sample
+        run: python3 examples/toy_agent.py
+      - name: Generate PDF
+        run: bash scripts/build_pdf.sh
+      - name: Publish compiled textbook to repository
+        run: |
+          cp dist/Agent_Algorithm_Textbook_2026.pdf book/Agent_Algorithm_Textbook_2026.pdf
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add book/Agent_Algorithm_Textbook_2026.pdf
+          if ! git diff --cached --quiet; then
+            git commit -m "build: publish compiled textbook PDF [skip ci]"
+            git push
+          fi
+      - name: Upload downloadable PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Agent-Algorithm-Textbook-PDF
+          path: dist/Agent_Algorithm_Textbook_2026.pdf
