@@ -87,7 +87,7 @@ $$\begin{aligned}
 
 ## 不使用Docker的基本环境
 
-本书的核心实验可在Windows、Linux或macOS上运行。建议Python 3.11或以上版本；不同依赖可能有各自版本要求。纯标准库实验无需第三方包，神经网络实验需要安装与你的硬件和驱动匹配的PyTorch。
+核心实验可在Windows、Linux或macOS上运行。建议Python 3.11或以上版本；不同依赖可能有各自版本要求。纯标准库实验无需第三方包，神经网络实验需要安装与你的硬件和驱动匹配的PyTorch。
 
 ```bash
 python --version
@@ -277,7 +277,7 @@ $$V_0(s)=0,\quad V_n(s)=\min_a\left[c(s,a)+\sum_{s'}p(s'\mid s,a)V_{n-1}(s')\rig
 
 ## 重要术语的数学对应
 
-| 常见术语 | 本书优先使用的解释 |
+| 常见术语 | 数学定义或工程含义 |
 |:--|:--|
 | Policy | 给定状态时行动的条件概率分布或确定性选择规则 |
 | Value Function | 给定初始条件下累计收益的条件数学期望 |
@@ -327,22 +327,3 @@ $$V_0(s)=0,\quad V_n(s)=\min_a\left[c(s,a)+\sum_{s'}p(s'\mid s,a)V_{n-1}(s')\rig
 **[R11]** Sutton and Barto, *Reinforcement Learning: An Introduction*, Second Edition (2018). 以随机过程、期望和动态规划为主线补充理论。\url{http://incompleteideas.net/book/the-book-2nd.html}
 
 **[R12]** Russell and Norvig, *Artificial Intelligence: A Modern Approach*, Fourth Edition. 搜索、逻辑、概率推断和决策的经典体系。\url{https://aima.cs.berkeley.edu/}
-
-## 推荐阅读顺序
-
-阅读论文时，建议先读其**问题定义与实验设计**，再读算法，再看实现；遇到新术语，先翻译回随机变量、概率分布、数学期望、优化目标和系统操作。不要因为模型名字或框架名字变化，就误以为基础数学也发生了变化。
-
-对Agent岗位而言，最有价值的研究习惯是逐步建立证据链：问题是什么、旧方法为什么不够、提出什么可证伪假设、怎样控制实验变量、结果能否复现，以及哪些限制还没有解决。
-
-\cleardoublepage
-\begin{center}
-\vspace*{35mm}
-{\sffamily\Large\bfseries 结束语}\\[12mm]
-\end{center}
-
-成为优秀的 Agent 算法工程师，不取决于能背出多少缩写，也不取决于使用了多少框架，而取决于能否把真实问题还原为明确的数学对象和工程约束，用算法提出可检验的改进，并在结果不符合预期时承认问题、修正方法。
-
-**数学让你知道自己在优化什么，系统工程让你知道程序实际做了什么，实验让你知道改动到底有没有用。**
-
-\vspace{16mm}
-\begin{center}\color{accent}\rule{0.62\linewidth}{1.3pt}\end{center}
