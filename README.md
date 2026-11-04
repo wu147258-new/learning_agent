@@ -10,6 +10,8 @@
 - [长篇教材完整知识结构与进度](BOOK_PLAN.md)
 - [后续开发计划](ROADMAP.md)
 
+新增的零基础章节覆盖终端、Python、算法与数据结构、线性代数、概率统计、Git、HTTP/SQL与受控工具执行器。
+
 ## 章节结构与目录
 
 - 一级标题（#）：章
@@ -27,6 +29,8 @@ Python标准库实验：
 python3 examples/beginner_cli.py self-test
 python3 examples/foundation_algorithms.py
 python3 examples/foundation_math.py
+python3 examples/foundation_http_sql.py
+python3 examples/beginner_tool_agent.py self-test
 python3 examples/toy_agent.py
 python3 examples/markov_control.py
 python3 examples/evaluate_agents.py
