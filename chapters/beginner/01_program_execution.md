@@ -257,5 +257,5 @@ python examples/beginner_cli.py self-test
 执行 **python examples/beginner_cli.py self-test**，预期显示 PASS。尝试把 **add 12 hello** 的退出状态码记录下来，并解释这种错误发生在读取输入、数值计算还是输出文件阶段。
 
 \begin{exercisebox}
-**排查练习。** 某任务在本地运行正常，在CI中报 FileNotFoundError。已知输入数据确实随项目提交了。请提出至少三项检查，并给出逐项确认的命令或Python语句。
+\textbf{排查练习。} 某任务在本地运行正常，在CI中报 FileNotFoundError。已知输入数据确实随项目提交了。请提出至少三项检查，并给出逐项确认的命令或Python语句。
 \end{exercisebox}
