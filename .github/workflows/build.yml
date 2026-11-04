@@ -25,6 +25,7 @@ jobs:
           python3 examples/beginner_cli.py self-test
           python3 examples/foundation_algorithms.py
           python3 examples/foundation_math.py
+          python3 examples/foundation_http_sql.py
           python3 scripts/check_heading_hierarchy.py
           test "$(python3 examples/beginner_cli.py add 12 30)" = "42"
           if python3 examples/beginner_cli.py add 12 invalid >/dev/null 2>&1; then
