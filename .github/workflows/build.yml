@@ -21,6 +21,7 @@ jobs:
         run: |
           python3 examples/toy_agent.py
           python3 examples/markov_control.py
+          python3 examples/evaluate_agents.py
       - name: Generate PDF from chapter sources
         run: bash scripts/build_pdf.sh
       - name: Publish regenerated PDF and manuscript
