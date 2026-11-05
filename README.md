@@ -65,3 +65,13 @@ GitHub Actions会运行离线实验并验证PDF编译，main分支通过后发�
 [验收规范](QUALITY.md) · [版本记录](CHANGELOG.md)
 
 本仓库尚未指定开放许可。仓库公开可访问不等同于内容可以自由再许可、复制或重新出版。
+
+## 深入Agent运行时实验
+
+~~~bash
+python3 examples/agent_runtime_recovery.py
+python3 examples/multiagent_coordinator.py
+python3 examples/agent_eval_security_lab.py
+~~~
+
+新增深度章节：[Agent运行时与故障恢复](chapters/28_agent_runtime_recovery.md)、[多Agent协作与一致性](chapters/29_multiagent_coordination.md)、[Agent评测与安全验收](chapters/30_agent_eval_security.md)。章节配套的可编辑矢量图位于 figures/，随构建编入PDF。
