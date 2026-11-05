@@ -22,6 +22,12 @@
 
 Agent之间的聊天可能丢失、截断或重复。调度器应该持久保存任务ID、输入版本、前置任务、授权工具、预算、运行状态、执行者租约与验收结果。聊天可以用于解释，不应该成为判断版本与权限的唯一依据。
 
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/multiagent_dependency.tex}}
+\caption{多Agent任务依赖图：并行任务与不可消除的关键路径}
+\end{figure}
+
 ## 从关键路径推导理论完成时间
 
 ### 最长依赖路径
