@@ -187,6 +187,67 @@ $$\text{计划动作}\longrightarrow\text{执行结果}\longrightarrow\text{新�
 
 这三类状态不能全部当作“失败，重试一下”。
 
+## 把A*转换为可运行的搜索程序
+
+### 状态和行动必须是结构化对象
+
+一个简单的规划图可定义为：字典的键是状态，值是可执行行动的列表。每个行动有后继状态、成本与所需权限。例如：
+
+~~~python
+graph = {
+    "start": [
+        ("risk", 1, "read"),
+        ("audit", 3, "read"),
+    ],
+    "risk": [
+        ("goal", 10, "deploy"),
+        ("audit", 1, "read"),
+    ],
+    "audit": [
+        ("goal", 2, "deploy"),
+    ],
+    "goal": [],
+}
+~~~
+
+如果没有deploy权限，则通往goal的边不属于合法行动。规划器不能把“我认为部署很重要”当作绕过权限的理由。
+
+### 最小A*循环
+
+~~~python
+from heapq import heappop, heappush
+
+def astar(start, goal, edges, h, permissions):
+    frontier = [(h[start], 0, start, [])]
+    best = {start: 0}
+    while frontier:
+        _, cost, state, path = heappop(frontier)
+        if cost > best[state]:
+            continue
+        if state == goal:
+            return path, cost
+        for nxt, edge_cost, scope in edges[state]:
+            if scope not in permissions:
+                continue
+            if edge_cost < 0:
+                raise ValueError("negative edge cost")
+            candidate = cost + edge_cost
+            if candidate < best.get(nxt, float("inf")):
+                best[nxt] = candidate
+                heappush(frontier, (
+                    candidate + h[nxt], candidate,
+                    nxt, path + [nxt]
+                ))
+    return None
+~~~
+
+这段教学代码假设状态可以比较、成本非负，且给定的启发式满足所声称的条件。完整实验另外实现了稳定的优先队列顺序、边校验、失败后阻止重试的动作记录和执行阶段再次检查权限。
+
+### 为什么执行阶段仍须再次检查权限
+
+规划器读到的权限可能已经在执行前被撤销。仅在规划时检查一次，不足以保证真正执行工具时仍有权操作。实际执行器应从可信授权源重新核验动作、资源范围和请求版本，检查通过后才实施具有副作用的操作。
+
+
 ## 行动具有随机结果时怎样计算规划价值
 
 ### 确定性图不够用
