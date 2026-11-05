@@ -62,6 +62,12 @@ $$
 
 所有这些性质都可以被编写成确定性单元测试，而不能只写进提示词。
 
+\begin{figure}[htbp]
+\centering
+\resizebox{0.97\linewidth}{!}{\input{figures/runtime_recovery.tex}}
+\caption{一次带幂等标识的外部工具请求及响应未知时的恢复路径}
+\end{figure}
+
 ## 为什么先执行或先记录都会留下故障窗口
 
 ### 先执行再记录
