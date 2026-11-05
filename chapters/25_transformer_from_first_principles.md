@@ -42,10 +42,10 @@ s_2=q^\mathsf Tk_2/\sqrt2=0.$$
 
 对两个得分进行Softmax：
 
-$$
+\begin{equation*}
 \alpha_i=\frac{e^{s_i}}{e^{s_1}+e^{s_2}},
 \qquad \alpha_1+\alpha_2=1.
-$$
+\end{equation*}
 
 数值上 $\alpha_1\approx0.6698$，$\alpha_2\approx0.3302$。输出：
 
@@ -67,13 +67,13 @@ $$QK^\mathsf T\in\mathbb R^{T\times T}.$$
 
 其第 $(i,j)$ 个元素是第 $i$ 个查询与第 $j$ 个键的内积。设掩码矩阵为 $M$，注意力结果为：
 
-$$
+\begin{equation*}
 \boxed{
 O=\operatorname{softmax}_{\mathrm{row}}
 \left(QK^\mathsf T/\sqrt{d_k}+M\right)V
 \in\mathbb R^{T\times d_v}.
 }
-$$
+\end{equation*}
 
 \begin{figure}[htbp]
 \centering
@@ -109,12 +109,12 @@ $$\mathbb E[Z]=0,\qquad \operatorname{Var}(Z)=d_k.$$
 
 令：
 
-$$
+\begin{equation*}
 M_{ij}=\begin{cases}
 0,&j\le i,\\
 -\infty,&j>i.
 \end{cases}
-$$
+\end{equation*}
 
 这样对于未来位置 $j>i$：
 
@@ -151,10 +151,10 @@ $$O_h=\operatorname{Attention}(Q_h,K_h,V_h).$$
 
 将所有头在特征维拼接：
 
-$$
+\begin{equation*}
 H=\operatorname{Concat}(O_1,\ldots,O_{n_h}),
 \qquad \operatorname{MHA}(X)=HW_O.
-$$
+\end{equation*}
 
 多头结构允许不同投影关注不同关系，但不能保证每个头必定学到一种人类能命名的语言规则。
 
@@ -190,15 +190,15 @@ $$Y=U+\operatorname{FFN}(\operatorname{LN}(U)).$$
 
 对Token特征向量 $x\in\mathbb R^d$：
 
-$$
+\begin{equation*}
 \mu=\frac1d\sum_i x_i,\quad
 \sigma^2=\frac1d\sum_i(x_i-\mu)^2,
-$$
+\end{equation*}
 
-$$
+\begin{equation*}
 \operatorname{LN}(x)_i=
 \gamma_i\frac{x_i-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta_i.
-$$
+\end{equation*}
 
 LN通常对单个Token的特征维度计算统计量；它与依赖批次统计量的BatchNorm不同。
 
@@ -220,23 +220,23 @@ $y=\operatorname{FFN}(x).$
 
 MoE（Mixture of Experts）把前馈部分替换为 $E$ 个专家网络 $f_1,\ldots,f_E$ 和一个路由器。对Token表示 $x$，路由器计算专家得分 $z=Wx$，选择得分最高的 $k$ 个专家：
 
-$$
+\begin{equation*}
 \mathcal K(x)=\operatorname{TopK}(z,k).
-$$
+\end{equation*}
 
 将被选择专家的得分重新做Softmax归一化：
 
-$$
+\begin{equation*}
 \alpha_i(x)=
 \frac{e^{z_i}}{\sum_{j\in\mathcal K(x)}e^{z_j}},
 \quad i\in\mathcal K(x).
-$$
+\end{equation*}
 
 输出：
 
-$$
+\begin{equation*}
 \boxed{y=\sum_{i\in\mathcal K(x)}\alpha_i(x)f_i(x).}
-$$
+\end{equation*}
 
 并非每个模型都使用完全相同的路由归一化，也可能包含共享专家、路由偏置、专家容量限制及负载均衡机制；以上是最基础的Top-k MoE教学定义。
 
@@ -276,11 +276,11 @@ $P_{\rm experts,active/token}\approx2\times10^6.$
 
 可以用一批Token分配到每个专家的数量 $n_e$ 观察负载：
 
-$$
+\begin{equation*}
 p_e=\frac{n_e}{\sum_{j=1}^{E}n_j},
 \quad
 H=-\sum_e p_e\log p_e.
-$$
+\end{equation*}
 
 熵 $H$ 可以描述分配是否集中，但并不自动等于训练中实际使用的负载均衡损失。不同模型可能采用辅助负载损失、无辅助损失的动态偏置等具体策略。DeepSeek-V3报告披露了不额外引入辅助损失的负载均衡方法；这些细节需要和一般MoE理论明确区分。
 
@@ -297,10 +297,10 @@ MoE带来参数容量与活跃计算的解耦，但训练和推理可能需要�
 
 位置 $t$ 的词表得分为 $z\in\mathbb R^V$，真实Token编号为 $y$：
 
-$$
+\begin{equation*}
 p_j=\frac{e^{z_j}}{\sum_ke^{z_k}},
 \qquad \ell(z,y)=-\log p_y.
-$$
+\end{equation*}
 
 展开：
 
@@ -316,9 +316,9 @@ $$\boxed{\frac{\partial\ell}{\partial z_j}=p_j-\mathbf1[j=y].}$$
 
 直接计算 $e^{1000}$ 容易浮点溢出。令 $m=\max_j z_j$：
 
-$$
+\begin{equation*}
 \log\sum_je^{z_j}=m+\log\sum_je^{z_j-m}.
-$$
+\end{equation*}
 
 这两项严格等价，但右式的指数输入均不大于0，数值更稳定。训练程序应使用实现了数值稳定性的交叉熵算子，而不是自行串联未经保护的exp、sum与log。
 
@@ -332,17 +332,17 @@ $$
 
 对于查询头 $h$，可令它使用KV组：
 
-$$
+\begin{equation*}
 \operatorname{group}(h)=\left\lfloor h/g\right\rfloor.
-$$
+\end{equation*}
 
 单头输出仍为缩放点积注意力，只是多个查询头复用同一组Key和Value：
 
-$$
+\begin{equation*}
 O_h=\operatorname{softmax}
 \left(\frac{Q_hK_{\operatorname{group}(h)}^{\mathsf T}}{\sqrt{d_h}}+M\right)
 V_{\operatorname{group}(h)}.
-$$
+\end{equation*}
 
 **减少KV头不等于减少查询头。** 它主要降低KV投影与缓存规模，同时可能影响模型表达与质量，需要在特定模型上评测。
 
@@ -350,9 +350,9 @@ $$
 
 忽略额外元数据时，KV缓存：
 
-$$
+\begin{equation*}
 M_{\mathrm{KV}}=2BLTH_{\rm kv}d_hb.
-$$
+\end{equation*}
 
 假设批量 $B=1$，层数 $L=32$，缓存长度 $T=8192$，查询头数 $H_q=32$，每头维度 $d_h=128$，KV元素占2字节。
 
@@ -385,9 +385,9 @@ QK-Norm在注意力打分前对查询和键施加适当归一化；Pre-Norm通�
 
 对于加入QK-Norm的版本，推导注意力分数时需将经过归一化的 $\widetilde Q,\widetilde K$ 代入：
 
-$$
+\begin{equation*}
 S=\widetilde Q\widetilde K^{\mathsf T}/\sqrt{d_h}+M.
-$$
+\end{equation*}
 
 实际归一化的具体定义、是否带可学习权重和作用维度须以模型实现为准。
 
@@ -427,12 +427,12 @@ GQA通过共享KV头降低缓存维度。另一条路线是先把历史Token的�
 
 假设原始维度为 $d$，潜在缓存维度为 $r$，且 $r\ll d$：
 
-$$
+\begin{equation*}
 c_t=W_{\mathrm{down}}x_t\in\mathbb R^r,
 \qquad
 \widetilde k_t=W_{\mathrm{up},k}c_t,\quad
 \widetilde v_t=W_{\mathrm{up},v}c_t.
-$$
+\end{equation*}
 
 如果只缓存 $c_t$，每个历史位置所需存储可以从若干完整KV向量降到 $r$ 个元素；但是计算过程中是否需要额外的解码、矩阵吸收和位置编码处理，要取决于真实实现。
 
@@ -474,26 +474,26 @@ python examples/model_architecture_patterns.py
 
 为了理解固定大小状态的来源，先考虑一个**教学用的核化注意力简化式**。令 $\phi(q),\phi(k)\in\mathbb R^r$ 为非负特征映射，定义：
 
-$$
+\begin{equation*}
 S_t=\sum_{j=1}^{t}\phi(k_j)v_j^\mathsf T,\qquad
 z_t=\sum_{j=1}^{t}\phi(k_j).
-$$
+\end{equation*}
 
 它们可以逐位置更新：
 
-$$
+\begin{equation*}
 S_t=S_{t-1}+\phi(k_t)v_t^\mathsf T,\qquad
 z_t=z_{t-1}+\phi(k_t).
-$$
+\end{equation*}
 
 当前查询的输出：
 
-$$
+\begin{equation*}
 \boxed{
 o_t=\frac{\phi(q_t)^\mathsf TS_t}
 {\phi(q_t)^\mathsf Tz_t}.
 }
-$$
+\end{equation*}
 
 只要分母为正，这就等于对此前所有键和值按 $\phi(q_t)^\mathsf T\phi(k_j)$ 权重加权归一化。这类状态只需要保存 $S_t$ 与 $z_t$，其维度不随历史Token数线性增长。
 
@@ -543,11 +543,11 @@ $$q'_m=R(m\omega)q,\qquad k'_n=R(n\omega)k,$$
 
 则：
 
-$$
+\begin{equation*}
 (q'_m)^\mathsf Tk'_n
 =q^\mathsf TR(m\omega)^\mathsf TR(n\omega)k
 =q^\mathsf TR((n-m)\omega)k.
-$$
+\end{equation*}
 
 因此内积包含相对位置差 $n-m$。多维RoPE将特征分成多个二维坐标对并使用不同频率；频率定义、坐标布局和长度扩展方案必须与模型实现一致。
 
