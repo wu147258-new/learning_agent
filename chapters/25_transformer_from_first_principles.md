@@ -294,6 +294,67 @@ $$
 
 因此内积包含相对位置差 $n-m$。多维RoPE将特征分成多个二维坐标对并使用不同频率；频率定义、坐标布局和长度扩展方案必须与模型实现一致。
 
+## 用十几行PyTorch实现因果注意力
+
+### 从数学式到程序
+
+对输入矩阵Q、K和V，实现单头注意力：
+
+~~~python
+import math
+import torch
+
+def causal_attention(q, k, v):
+    # q,k: (T,d_k), v: (T,d_v)
+    scores = q @ k.T / math.sqrt(q.shape[-1])
+    T = q.shape[0]
+    visible = torch.ones(
+        T, T, device=q.device, dtype=torch.bool
+    ).tril()
+    scores = scores.masked_fill(
+        ~visible, float("-inf")
+    )
+    weights = torch.softmax(scores, dim=-1)
+    return weights @ v, weights
+~~~
+
+逐行解释：第一行矩阵乘法计算所有位置对之间的查询—键相似度；tril构造下三角可见性；masked_fill将未来位置设为负无穷；Softmax在最后一个维度归一化；最终矩阵乘法实现加权求和。
+
+这个版本仅用于同长度、自回归、无Padding的学习实验。将它直接用于批处理生产推理还需要处理Batch维、多个注意力头、Padding、设备精度和缓存。
+
+### 用最小输入验证形状与掩码
+
+~~~python
+q = torch.tensor([[1., 0.], [0., 1.]])
+k = q.clone()
+v = torch.tensor([[2., 0.], [0., 4.]])
+output, weights = causal_attention(q, k, v)
+
+assert output.shape == (2, 2)
+assert weights.shape == (2, 2)
+assert weights[0, 1].item() == 0
+~~~
+
+第一位置不能读取第二个位置，所以第一行的第二个权重必须严格为零。注意这并不是说第二个位置不能读取第一个位置；因果可见性是有方向的。
+
+### 下一Token标签怎样移位
+
+~~~python
+from torch.nn import functional as F
+
+# token_ids 形状为(B,T)
+model_input = token_ids[:, :-1]
+target = token_ids[:, 1:]
+logits = model(model_input)  # (B,T-1,V)
+loss = F.cross_entropy(
+    logits.reshape(-1, logits.shape[-1]),
+    target.reshape(-1)
+)
+~~~
+
+如果输入包含Padding或指令部分，必须进一步构造损失掩码；否则会把本应忽略的位置也纳入监督。仅会调用交叉熵函数，不等于已经正确设置训练任务。
+
+
 ## PyTorch实验与验收
 
 ### 可执行的验证
