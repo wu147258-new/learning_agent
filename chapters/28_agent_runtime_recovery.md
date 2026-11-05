@@ -179,13 +179,13 @@ WHERE tenant_id = ? AND alert_id = ?;
 
 可以将许可条件写成：
 
-$
+$$
 \operatorname{Permit}(u,r,a)
 =
 \operatorname{Authenticated}(u)
 \land\operatorname{AllowedScope}(u,a)
 \land\operatorname{ResourceAllowed}(u,r).
-$
+$$
 
 模型不能仅凭参数中填写另一个租户标识，改变真实授权范围。
 
