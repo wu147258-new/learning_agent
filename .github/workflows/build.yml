@@ -97,6 +97,7 @@ jobs:
           python examples/model_architecture_patterns.py
           python examples/model_training_architectures.py
           python examples/multistep_rl_rollout_lab.py
+          python examples/vision_token_pipeline_lab.py
 
   offline-agent-smoke:
     runs-on: ubuntu-latest
