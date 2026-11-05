@@ -117,3 +117,11 @@ python examples/multistep_rl_rollout_lab.py
 ~~~
 
 最后一项需要PyTorch CPU。算子与执行流程均为离线教学实现，不是主流模型权重或vLLM内核的完整复现。
+
+多模态视觉编码的离线教学实验：
+
+~~~bash
+python examples/vision_token_pipeline_lab.py
+~~~
+
+配合已有Transformer章节内的Qwen3-VL公开结构解释，演示图像Patch、视觉特征2×2合并、二维RoPE相对坐标及多层视觉注入。实验只核验算子与维度，不下载视觉模型权重，也不报告未经测试的识别准确率。
