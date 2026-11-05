@@ -1,0 +1,34 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  module/.style={draw=deepblue,rounded corners=2pt,fill=blue!5,minimum height=8mm,minimum width=19mm,align=center},
+  shared/.style={draw=green!50!black,rounded corners=2pt,fill=green!8,minimum height=8mm,minimum width=18mm,align=center},
+  latent/.style={draw=accent,rounded corners=2pt,fill=orange!9,minimum height=8mm,minimum width=18mm,align=center},
+  arrow/.style={->,thick,deepblue}]
+\node[anchor=west,font=\bfseries] at (-0.4,2.05) {MHA：每个查询头对应一组K/V};
+\node[module] (m1) at (0.8,1.3) {$Q_1$};
+\node[module] (m2) at (3.0,1.3) {$Q_2$};
+\node[module] (m3) at (5.2,1.3) {$Q_3$};
+\node[module] (m4) at (7.4,1.3) {$Q_4$};
+\node[shared] (mk1) at (0.8,0.35) {$K_1,V_1$};
+\node[shared] (mk2) at (3.0,0.35) {$K_2,V_2$};
+\node[shared] (mk3) at (5.2,0.35) {$K_3,V_3$};
+\node[shared] (mk4) at (7.4,0.35) {$K_4,V_4$};
+\foreach \i in {1,2,3,4}{\draw[arrow] (m\i.south)--(mk\i.north);}
+\node[anchor=west,font=\bfseries] at (-0.4,-0.5) {GQA：多个查询头共享同一组K/V};
+\node[module] (g1) at (0.8,-1.35) {$Q_1$};
+\node[module] (g2) at (3.0,-1.35) {$Q_2$};
+\node[module] (g3) at (5.2,-1.35) {$Q_3$};
+\node[module] (g4) at (7.4,-1.35) {$Q_4$};
+\node[shared] (ga) at (1.9,-2.45) {组A\\$K_A,V_A$};
+\node[shared] (gb) at (6.3,-2.45) {组B\\$K_B,V_B$};
+\draw[arrow] (g1.south) -- (ga.north west);
+\draw[arrow] (g2.south) -- (ga.north east);
+\draw[arrow] (g3.south) -- (gb.north west);
+\draw[arrow] (g4.south) -- (gb.north east);
+\node[anchor=west,font=\bfseries] at (-0.4,-3.15) {低秩KV潜在表示（概念示意）};
+\node[module] (x) at (0.9,-4.0) {Token表示\\$x_t$};
+\node[latent] (z) at (3.7,-4.0) {低秩潜在向量\\$c_t=W_dx_t$};
+\node[shared] (kv) at (7.0,-4.0) {按需重构\\$\widetilde K,\widetilde V$};
+\draw[arrow] (x.east)--(z.west);
+\draw[arrow] (z.east)--(kv.west);
+\node[anchor=north west,align=left,text=deepblue] at (-0.4,-4.8) {注意：这里只说明缓存结构。DeepSeek-V3 MLA包含更完整的投影、位置编码与运算优化设计。};
+\end{tikzpicture}
