@@ -1,0 +1,17 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  trusted/.style={draw=deepblue,fill=blue!5,rounded corners=2pt,minimum width=29mm,minimum height=10mm,align=center},
+  restricted/.style={draw=accent,fill=orange!9,rounded corners=2pt,minimum width=29mm,minimum height=10mm,align=center},
+  success/.style={draw=green!45!black,fill=green!7,rounded corners=2pt,minimum width=29mm,minimum height=10mm,align=center},
+  arrow/.style={->,thick,deepblue}]
+\node[trusted] (host) at (0,0.8) {Host/Client\\真实用户身份};
+\node[trusted] (model) at (3.6,0.8) {模型候选操作\\工具名与参数};
+\node[restricted] (gateway) at (7.2,0.8) {服务端工具网关\\Schema + 身份授权};
+\node[success] (result) at (10.8,0.8) {真实工具结果\\版本与证据};
+\draw[arrow] (host.east)--(model.west);
+\draw[arrow] (model.east)--(gateway.west);
+\draw[arrow] (gateway.east)--(result.west);
+\node[restricted] (meta) at (3.6,-1.25) {外部工具元数据\\不可信描述};
+\draw[arrow,dashed,accent] (meta.north)--node[right]{只能作为待核查数据}(model.south);
+\draw[->,dashed,accent] (meta.east)--node[below]{不能直接升级权限}(gateway.south west);
+\node[anchor=north west,align=left,text=deepblue] at (-1.6,-2.55) {输入Schema只检查参数结构，无法取代服务端身份与资源归属检查；业务幂等键与JSON-RPC请求ID应分开。};
+\end{tikzpicture>
