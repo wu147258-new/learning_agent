@@ -220,23 +220,23 @@ $y=\operatorname{FFN}(x).$
 
 MoE（Mixture of Experts）把前馈部分替换为 $E$ 个专家网络 $f_1,\ldots,f_E$ 和一个路由器。对Token表示 $x$，路由器计算专家得分 $z=Wx$，选择得分最高的 $k$ 个专家：
 
-$
+$$
 \mathcal K(x)=\operatorname{TopK}(z,k).
-$
+$$
 
 将被选择专家的得分重新做Softmax归一化：
 
-$
+$$
 \alpha_i(x)=
 \frac{e^{z_i}}{\sum_{j\in\mathcal K(x)}e^{z_j}},
 \quad i\in\mathcal K(x).
-$
+$$
 
 输出：
 
-$
+$$
 \boxed{y=\sum_{i\in\mathcal K(x)}\alpha_i(x)f_i(x).}
-$
+$$
 
 并非每个模型都使用完全相同的路由归一化，也可能包含共享专家、路由偏置、专家容量限制及负载均衡机制；以上是最基础的Top-k MoE教学定义。
 
@@ -276,11 +276,11 @@ $P_{\rm experts,active/token}\approx2\times10^6.$
 
 可以用一批Token分配到每个专家的数量 $n_e$ 观察负载：
 
-$
+$$
 p_e=\frac{n_e}{\sum_{j=1}^{E}n_j},
 \quad
 H=-\sum_e p_e\log p_e.
-$
+$$
 
 熵 $H$ 可以描述分配是否集中，但并不自动等于训练中实际使用的负载均衡损失。不同模型可能采用辅助负载损失、无辅助损失的动态偏置等具体策略。DeepSeek-V3报告披露了不额外引入辅助损失的负载均衡方法；这些细节需要和一般MoE理论明确区分。
 
@@ -332,17 +332,17 @@ $$
 
 对于查询头 $h$，可令它使用KV组：
 
-$
+$$
 \operatorname{group}(h)=\left\lfloor h/g\right\rfloor.
-$
+$$
 
 单头输出仍为缩放点积注意力，只是多个查询头复用同一组Key和Value：
 
-$
+$$
 O_h=\operatorname{softmax}
 \left(\frac{Q_hK_{\operatorname{group}(h)}^{\mathsf T}}{\sqrt{d_h}}+M\right)
 V_{\operatorname{group}(h)}.
-$
+$$
 
 **减少KV头不等于减少查询头。** 它主要降低KV投影与缓存规模，同时可能影响模型表达与质量，需要在特定模型上评测。
 
@@ -350,9 +350,9 @@ $
 
 忽略额外元数据时，KV缓存：
 
-$
+$$
 M_{\mathrm{KV}}=2BLTH_{\rm kv}d_hb.
-$
+$$
 
 假设批量 $B=1$，层数 $L=32$，缓存长度 $T=8192$，查询头数 $H_q=32$，每头维度 $d_h=128$，KV元素占2字节。
 
@@ -385,9 +385,9 @@ QK-Norm在注意力打分前对查询和键施加适当归一化；Pre-Norm通�
 
 对于加入QK-Norm的版本，推导注意力分数时需将经过归一化的 $\widetilde Q,\widetilde K$ 代入：
 
-$
+$$
 S=\widetilde Q\widetilde K^{\mathsf T}/\sqrt{d_h}+M.
-$
+$$
 
 实际归一化的具体定义、是否带可学习权重和作用维度须以模型实现为准。
 
@@ -427,12 +427,12 @@ GQA通过共享KV头降低缓存维度。另一条路线是先把历史Token的�
 
 假设原始维度为 $d$，潜在缓存维度为 $r$，且 $r\ll d$：
 
-$
+$$
 c_t=W_{\mathrm{down}}x_t\in\mathbb R^r,
 \qquad
 \widetilde k_t=W_{\mathrm{up},k}c_t,\quad
 \widetilde v_t=W_{\mathrm{up},v}c_t.
-$
+$$
 
 如果只缓存 $c_t$，每个历史位置所需存储可以从若干完整KV向量降到 $r$ 个元素；但是计算过程中是否需要额外的解码、矩阵吸收和位置编码处理，要取决于真实实现。
 
@@ -474,26 +474,26 @@ python examples/model_architecture_patterns.py
 
 为了理解固定大小状态的来源，先考虑一个**教学用的核化注意力简化式**。令 $\phi(q),\phi(k)\in\mathbb R^r$ 为非负特征映射，定义：
 
-$
+$$
 S_t=\sum_{j=1}^{t}\phi(k_j)v_j^\mathsf T,\qquad
 z_t=\sum_{j=1}^{t}\phi(k_j).
-$
+$$
 
 它们可以逐位置更新：
 
-$
+$$
 S_t=S_{t-1}+\phi(k_t)v_t^\mathsf T,\qquad
 z_t=z_{t-1}+\phi(k_t).
-$
+$$
 
 当前查询的输出：
 
-$
+$$
 \boxed{
 o_t=\frac{\phi(q_t)^\mathsf TS_t}
 {\phi(q_t)^\mathsf Tz_t}.
 }
-$
+$$
 
 只要分母为正，这就等于对此前所有键和值按 $\phi(q_t)^\mathsf T\phi(k_j)$ 权重加权归一化。这类状态只需要保存 $S_t$ 与 $z_t$，其维度不随历史Token数线性增长。
 
