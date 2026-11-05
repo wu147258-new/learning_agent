@@ -1,0 +1,33 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  block/.style={draw=deepblue,rounded corners=2pt,fill=blue!6,minimum width=25mm,minimum height=10mm,align=center},
+  review/.style={draw=accent,rounded corners=2pt,fill=orange!9,minimum width=25mm,minimum height=10mm,align=center},
+  good/.style={draw=green!50!black,rounded corners=2pt,fill=green!8,minimum width=25mm,minimum height=10mm,align=center},
+  ar/.style={->,thick,deepblue}]
+\node[anchor=east,font=\bfseries] at (-0.5,2.7) {ReAct};
+\node[block] (rm) at (1.4,2.7) {当前观察\\提出一步动作};
+\node[block] (rt) at (5.2,2.7) {工具网关\\权限与执行};
+\node[good] (ro) at (9.0,2.7) {新Observation\\真实结果};
+\draw[ar] (rm.east)--(rt.west);
+\draw[ar] (rt.east)--(ro.west);
+\draw[ar] (ro.north) -- ++(0,0.6) -| node[pos=0.35,above]{更新状态后再决策} (rm.north);
+\node[anchor=east,font=\bfseries,align=right] at (-0.5,0.7) {Plan-\\Execute};
+\node[block] (pl) at (1.4,0.7) {Planner\\生成任务DAG};
+\node[block] (pe) at (5.2,0.7) {Executor\\按依赖执行};
+\node[good] (pv) at (9.0,0.7) {Verifier\\独立验收};
+\draw[ar] (pl.east)--(pe.west);
+\draw[ar] (pe.east)--(pv.west);
+\draw[ar,accent] (pv.south) -- ++(0,-0.45) -| node[pos=0.4,below]{失败后重规划} (pl.south);
+\node[anchor=east,font=\bfseries] at (-0.5,-1.45) {Handoff};
+\node[block] (h1) at (1.4,-1.45) {入口Agent\\当前控制者};
+\node[review] (h2) at (5.2,-1.45) {Handoff\\转交任务};
+\node[good] (h3) at (9.0,-1.45) {专业Agent\\接管后续流程};
+\draw[ar] (h1.east)--(h2.west);
+\draw[ar] (h2.east)--(h3.west);
+\node[anchor=east,font=\bfseries] at (-0.5,-3.55) {Manager};
+\node[block] (m1) at (1.4,-3.55) {Manager\\持有最终责任};
+\node[review] (m2) at (5.2,-3.55) {专业Agent作为工具\\受限子任务};
+\node[good] (m3) at (9.0,-3.55) {结果返回Manager\\由其汇总交付};
+\draw[ar] (m1.east)--(m2.west);
+\draw[ar] (m2.east)--(m3.west);
+\node[anchor=north west,align=left,text=deepblue] at (-0.5,-4.55) {四种控制模式可组合，但任何一种都不能替代服务端授权、版本管理和外部结果验证。};
+\end{tikzpicture>
