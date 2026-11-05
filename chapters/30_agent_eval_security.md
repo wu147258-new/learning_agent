@@ -172,6 +172,12 @@ forbidden_side_effects
 
 语义支持判定可能需要独立验证器或人工专家。仅靠关键词匹配不足以证明一个复杂安全结论。
 
+\begin{figure}[htbp]
+\centering
+\resizebox{0.96\linewidth}{!}{\input{figures/agent_eval_trust_boundary.tex}}
+\caption{不可信检索证据、模型候选动作和可信工具执行之间的权限边界}
+\end{figure}
+
 ## 提示词注入是一种信任边界错误
 
 ### 不可信文本为何危险
