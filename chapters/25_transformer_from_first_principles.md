@@ -240,6 +240,12 @@ $
 
 并非每个模型都使用完全相同的路由归一化，也可能包含共享专家、路由偏置、专家容量限制及负载均衡机制；以上是最基础的Top-k MoE教学定义。
 
+\begin{figure}[htbp]
+\centering
+\resizebox{0.92\linewidth}{!}{\input{figures/model_moe_routing.tex}}
+\caption{稀疏MoE的Top-k专家选择和归一化加权；只执行被选择专家，不代表其余专家权重不存在}
+\end{figure}
+
 ### “总参数”与“单Token激活参数”不同
 
 假设专家数 $E=8$，每个专家有 $P_e=10^6$ 个参数，路由时选择 $k=2$ 个专家。仅考虑专家部分：
