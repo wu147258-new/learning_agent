@@ -117,7 +117,7 @@ def check_pdf(pdf_path):
         toc_pages.append(page)
     if not toc_pages:
         raise AssertionError("Could not isolate roman-numbered TOC pages")
-    toc_text = "\\n".join(toc_pages)
+    toc_text = "\n".join(toc_pages)
     if not re.search(r"\d+\.\d+\s+", toc_text):
         raise AssertionError("TOC appears to omit sections")
     if re.search(r"^\s*\d+\.\d+\.\d+\s+", toc_text, flags=re.M):
