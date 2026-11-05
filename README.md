@@ -104,3 +104,24 @@ python examples/agent_memory_provenance_lab.py
 ~~~
 
 协议案例采用官方公开规范；脚本仅模拟安全边界与状态机，并不声称实现了完整MCP/A2A服务端。
+
+## 推理与端到端Agent实验
+
+继续在原有推理基础设施、强化学习和Agent规划章节增加可运行实验：
+
+~~~bash
+python examples/inference_quantization_lab.py
+python examples/speculative_decoding_lab.py
+python examples/verified_code_repair_agent.py
+python examples/multistep_rl_rollout_lab.py
+~~~
+
+最后一项需要PyTorch CPU。算子与执行流程均为离线教学实现，不是主流模型权重或vLLM内核的完整复现。
+
+多模态视觉编码的离线教学实验：
+
+~~~bash
+python examples/vision_token_pipeline_lab.py
+~~~
+
+配合已有Transformer章节内的Qwen3-VL公开结构解释，演示图像Patch、视觉特征2×2合并、二维RoPE相对坐标及多层视觉注入。实验只核验算子与维度，不下载视觉模型权重，也不报告未经测试的识别准确率。

@@ -38,6 +38,9 @@ jobs:
           python3 examples/foundation_concurrency.py
           python3 examples/foundation_network.py
           python3 examples/agent_planning_lab.py
+          python3 examples/verified_code_repair_agent.py
+          python3 examples/inference_quantization_lab.py
+          python3 examples/speculative_decoding_lab.py
           python3 examples/agent_runtime_recovery.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
@@ -93,3 +96,16 @@ jobs:
           python examples/tiny_lm_sft_dpo.py
           python examples/model_architecture_patterns.py
           python examples/model_training_architectures.py
+          python examples/multistep_rl_rollout_lab.py
+          python examples/vision_token_pipeline_lab.py
+
+  offline-agent-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify standalone Agent and inference experiments
+        run: |
+          python3 examples/verified_code_repair_agent.py
+          python3 examples/inference_quantization_lab.py
+          python3 examples/speculative_decoding_lab.py
