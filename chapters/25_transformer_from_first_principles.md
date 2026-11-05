@@ -612,6 +612,187 @@ loss = F.cross_entropy(
 如果输入包含Padding或指令部分，必须进一步构造损失掩码；否则会把本应忽略的位置也纳入监督。仅会调用交叉熵函数，不等于已经正确设置训练任务。
 
 
+## Transformer如何接收图像与视频：从Patch到多模态Token
+
+### 文本序列之外，图像为什么必须先编码
+
+前面构建的Decoder Transformer从离散Token索引开始，把每个索引映射到一个 $d$ 维向量。图像却是一个三维数值张量：通道、高度和宽度。
+
+以RGB图像为例：
+
+$
+X\in\mathbb R^{3\times H\times W}.
+$
+
+若直接把每个像素位置都作为单独Token，一张 $1024\times1024$ 图像会产生约一百万个位置。无论注意力矩阵、位置表示还是模型输入接口，都需要考虑如何降低计算成本。
+
+Vision Transformer（ViT）常见做法是把图像分成互不重叠的小块（Patch），每块展开并投影成特征向量。多模态生成模型可以将这些视觉特征以不同方式连接到语言模型。
+
+### Patch数量怎样由图像分辨率决定
+
+假设 $H,W$ 都能被Patch边长 $P$ 整除，不重叠图像块数量为：
+
+$
+N_{\mathrm{patch}}=\frac{H}{P}\frac{W}{P}.
+$
+
+例如 $H=W=224$ 且 $P=16$：
+
+$
+N_{\mathrm{patch}}=14\times14=196.
+$
+
+若图像分辨率变为 $448\times448$ 而Patch边长不变，Patch数量为784，恰好扩大4倍。
+
+因此动态分辨率模型不能把“每张图片消耗的视觉Token数”视为固定常数。真实视觉编码器还可能使用裁剪、缩放、Patch合并和多尺度特征，实际Token数量由模型预处理与合并规则共同决定。
+
+### 从一个Patch到语言模型可用的隐藏向量
+
+单个RGB Patch有 $3P^2$ 个数值。将其展开：
+
+$
+x_i\in\mathbb R^{3P^2}.
+$
+
+通过可学习的投影矩阵：
+
+$
+e_i=W_{\mathrm{patch}}x_i+b_{\mathrm{patch}},
+\qquad
+W_{\mathrm{patch}}\in\mathbb R^{d_v\times 3P^2},
+$
+
+得到视觉编码器的输入向量 $e_i\in\mathbb R^{d_v}$。
+
+如果语言模型隐藏维度是 $d_\ell$，视觉编码器输出维度是 $d_v$，通常还需要Merger或Projector：
+
+$
+z_i=W_{\mathrm{proj}}h_i,\qquad
+W_{\mathrm{proj}}\in\mathbb R^{d_\ell\times d_v}.
+$
+
+**这里的线性投影只说明维度连接。** 实际多模态模型可能使用多层MLP、视觉编码器的多层特征、特殊分隔符和分辨率相关的位置设计，不能把一个矩阵乘法误称为完整视觉语言模型实现。
+
+### 早期融合与跨注意力有什么区别
+
+两种常见模式可以从注意力的输入来源区分。
+
+早期融合（Early Fusion）将映射后的视觉Token与文本Token排入模型可处理的同一个序列，再由统一骨干进行交互：
+
+$
+Z=[z_1^{\mathrm{image}},\ldots,z_m^{\mathrm{image}},
+e_1^{\mathrm{text}},\ldots,e_n^{\mathrm{text}}].
+$
+
+跨注意力（Cross-Attention）则允许文本隐藏状态作为Query，视觉特征作为Key和Value：
+
+$
+O_{\mathrm{text}}=
+\operatorname{softmax}\left(
+\frac{Q_{\mathrm{text}}K_{\mathrm{vision}}^\mathsf T}
+{\sqrt{d_h}}
+\right)V_{\mathrm{vision}}.
+$
+
+两者都能使文字生成依赖图像，但层间位置、训练目标、KV复用和推理代价不同。“视觉编码器+语言模型”并不足以判断整个模型究竟采用何种融合结构。
+
+### 公开模型实例：Qwen3-VL、Llama 4与Gemma 3
+
+Qwen3-VL技术报告于2025年公开，介绍了视觉编码器、视觉语言Merger与语言骨干的组合，并讨论Interleaved-MRoPE、DeepStack和视频的文本时间戳对齐。报告同时披露Dense与MoE多个规模的变体。对本节来说，重要的是**多尺度图像特征和时空位置不能只用“图像就是一段文字”解释**。
+
+Meta的Llama 4模型卡明确将Scout、Maverick描述为使用MoE和Early Fusion的原生多模态自回归模型；视觉与文本可以在统一骨干里交互。但这并不代表它们与Qwen3-VL的视觉特征处理、训练数据及位置编码完全一样。
+
+Gemma 3技术报告则给出另一个不同的工程取舍：模型增加视觉输入能力，同时通过增加局部与全局注意力层比例、缩短局部窗口来控制长上下文KV缓存的增长。它证明“是否支持图像”和“如何管理长上下文缓存”是两个需要一起设计、却不属于同一技术问题的维度。
+
+| 模型公开案例 | 可确认的设计要点 | 与本节概念的联系 |
+|---|---|---|
+| Qwen3-VL | 视觉编码器、Merger、DeepStack及多模态位置结构 | 图像特征投影、空间/时间关联 |
+| Llama 4 Scout/Maverick | 原生多模态、Early Fusion与MoE | 多模态序列融合与稀疏专家 |
+| Gemma 3 | 视觉输入、较高局部注意力比例 | 多模态与KV资源的协同约束 |
+
+上述表格只整理公开文献能够支持的结构，不能用来推断其他闭源模型的未公开细节，也不构成真实性能排名。
+
+### 为什么视频比单张图像更复杂
+
+视频包含一组带时间顺序的帧：
+
+$
+V=(X_0,t_0),(X_1,t_1),\ldots,(X_{F-1},t_{F-1}).
+$
+
+若每帧产生 $N_{\mathrm{patch}}$ 个视觉Token，不经过额外压缩时，视觉序列长度可近似按帧数线性增长：
+
+$
+T_{\mathrm{vision}}\approx F N_{\mathrm{patch}}.
+$
+
+例如每帧196个Patch、采样32帧，就已经是6272个位置，还没计入文字、时间戳、音频以及其他元数据。
+
+仅将帧按顺序拼接，模型未必能准确区分“同时出现”“发生在前”和“间隔多久”；因此视频架构需要显式或隐式的位置与时间关联。这是Qwen3-VL公开文档讨论改进时空表示和文本时间对齐的根本问题之一。
+
+### 多模态Agent中的证据链比图像识别更难
+
+一个Agent根据设备机房照片判断指示灯是否异常时，除了生成“红灯亮起”的描述，还应记录：
+
+- 输入图片或视频的来源、采集时间和授权范围；
+- 图像预处理版本、尺寸变化及被裁剪的区域；
+- 识别依据对应的图像区域或具体视频时间段；
+- 输出判断是“直接可见事实”还是“依据经验的推测”；
+- 后续是否允许自动执行高风险运维动作。
+
+多模态识别输出可能受拍摄角度、反射、模糊及域外图片影响。即便模型宣称具有视觉能力，也不能让视觉回答直接越过运行时工具权限。
+
+### PyTorch实验：一张图像怎样成为视觉Token
+
+运行：
+
+~~~bash
+python examples/multimodal_patch_fusion_lab.py
+~~~
+
+实验严格验证：
+
+1. 8×8三通道小图像以2×2 Patch分割，得到16个Patch，每块包含12个数值；
+2. 对Patch执行逆变换，保证原像素位置完全恢复；
+3. 把4个连续Patch映射为一个教学用视觉向量，得到4个视觉Token；
+4. 与3个文本Token组成一段7位置融合序列；
+5. 使用“图像前缀可见，文本按因果掩码”的示例注意力遮罩；
+6. 改动未来文本Token后，已有文本位置的输出不发生变化；
+7. 在Patch边长不变时将分辨率加倍，验证Patch数量扩大4倍。
+
+**这只验证张量形状和融合算子的一种示例实现**。代码没有下载真实ViT权重，没有实现Qwen3-VL的Merger或Llama 4的真实视觉骨干。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/multimodal_patch_pipeline.tex}}
+\caption{从像素Patch到视觉特征、视觉Token与文本Token融合的教学计算路径}
+\end{figure}
+
+### 练习与解答
+
+**题一：** 图像大小为336×336、Patch大小为14，每张图像有多少个不重叠Patch？
+
+**解：** 每边有 $336/14=24$ 个Patch，共 $24^2=576$ 个。
+
+**题二：** 为什么提高分辨率可能显著提高视觉Token预算？
+
+**解：** 在Patch边长固定时，Patch数正比于 $HW$。长宽都增加一倍，Patch数量增加四倍；若采用可变Patch合并或多尺度抽样，实际Token增长规律需以具体模型的预处理策略为准。
+
+**题三：** 将Patch线性映射为视觉Token是否等于模型已经理解图像语义？
+
+**解：** 不等于。线性映射只完成数值与维度变换，视觉特征的语义结构需要经过视觉编码器训练及与语言任务的对齐学习形成。
+
+**题四：** 为什么图像内容中的“请关闭安全审计”字样不能成为Agent的系统指令？
+
+**解：** 图像识别到的文字属于不可信外部证据，即使识别完全正确，也不能改变执行器的权限。只有来自可信授权系统且满足操作条件的请求可以触发相关工具。
+
+### 参考资料
+
+- Qwen3-VL Technical Report（2025）：https://arxiv.org/abs/2511.21631
+- Meta Llama 4 Model Card：https://github.com/meta-llama/llama-models/blob/main/models/llama4/MODEL_CARD.md
+- Gemma 3 Technical Report：https://arxiv.org/abs/2503.19786
+
+
 ## PyTorch实验与验收
 
 ### 可执行的验证
