@@ -103,18 +103,21 @@ def check_pdf(pdf_path):
             break
     if start is None:
         raise AssertionError("Rendered PDF has no visible TOC")
-    # The TOC is in the front matter and ends at the first real body chapter.
+    # The frontmatter uses roman-numbered pages, while body text uses Arabic
+    # page numbers. Stop BEFORE the first body page; scanning the entire
+    # manuscript would mistake correctly numbered body subsections for TOC.
     toc_pages = []
     for page in pages[start:]:
         lines = [line.strip() for line in page.splitlines() if line.strip()]
         if not lines:
             continue
-        first = lines[0]
-        if toc_pages and re.match(r"^第[一二三四五六七八九十百零]+章\s+\S+", first):
-            if not re.search(r"\.{2,}", first):
-                break
+        footer = lines[-1]
+        if toc_pages and re.fullmatch(r"[0-9]+", footer):
+            break
         toc_pages.append(page)
-    toc_text = "\n".join(toc_pages)
+    if not toc_pages:
+        raise AssertionError("Could not isolate roman-numbered TOC pages")
+    toc_text = "\\n".join(toc_pages)
     if not re.search(r"\d+\.\d+\s+", toc_text):
         raise AssertionError("TOC appears to omit sections")
     if re.search(r"^\s*\d+\.\d+\.\d+\s+", toc_text, flags=re.M):
