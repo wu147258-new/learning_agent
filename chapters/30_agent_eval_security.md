@@ -212,13 +212,13 @@ forbidden_side_effects
 
 MCP中工具可以被发现，A2A中专业Agent可以公布自己的技能，但这些能力描述都不是用户的权限凭据。运行时应有一个始终成立的不变量：
 
-$
+$$
 \forall r,\quad
 \operatorname{Executed}(r)\Rightarrow
 \operatorname{Authenticated}(r)
 \land\operatorname{Authorized}(r)
 \land\operatorname{ArgumentsValid}(r).
-$
+$$
 
 这里的Executed代表真实有副作用的执行事件，而不是模型提出了候选请求。验收时要检查外部执行日志，而不能只看Agent回答“我没有越权”。
 
@@ -255,17 +255,17 @@ MCP安全最佳实践讨论Confused Deputy（混淆代理）与Token Passthrough
 
 因此可以定义三个不同状态：
 
-$
+$$
 T_{\mathrm{protocol}}\in\{\text{working, completed, failed},\ldots\},
-$
+$$
 
-$
+$$
 E_{\mathrm{artifact}}\in\{\text{valid, stale, unauthorized},\ldots\},
-$
+$$
 
-$
+$$
 V_{\mathrm{business}}\in\{\text{pass, fail, unknown}\}.
-$
+$$
 
 其中协议任务状态为COMPLETED，不推出工件检查valid，更不推出业务验收pass。
 
