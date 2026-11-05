@@ -33,6 +33,7 @@ jobs:
           python3 examples/beginner_tool_agent.py self-test
           python3 examples/foundation_testing.py
           python3 examples/foundation_concurrency.py
+          python3 examples/foundation_network.py
           python3 examples/beginner_tool_agent.py run
           python3 scripts/check_heading_hierarchy.py
           test "$(python3 examples/beginner_cli.py add 12 30)" = "42"
