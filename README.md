@@ -1,42 +1,67 @@
 # Agent 算法与系统：从数学原理到工程实践
 
-面向 Agent 算法与系统工程方向的中文教材，包含数学推导、代码实验、系统设计和评测方法。
+面向从零学习计算机、Python、数学、大模型与Agent算法的中文教材项目。包含可编辑章节、公式、代码实验与习题，支持从源码生成PDF。
 
-## 教材文件
+## 直接阅读
 
-- **[阅读/下载最新 PDF](book/Agent_Algorithm_Textbook_2026.pdf)**（首次构建完成后自动出现）
-- [完整 Markdown + LaTeX 原始章节](book/source.md)
-- [分章编辑文件](chapters/)
-- [PDF 排版配置](book/header.tex)
-- [源码编译脚本](scripts/build_pdf.sh)
-- [可离线运行的 Agent 实验](examples/toy_agent.py)
+- [最新正式PDF（main分支）](book/Agent_Algorithm_Textbook_2026.pdf)
+- [独立入门章节](chapters/beginner/)
+- [现有算法与系统章节](chapters/)
+- [长篇教材完整知识结构与进度](BOOK_PLAN.md)
+- [后续开发计划](ROADMAP.md)
 
-## 内容
+新增的零基础章节覆盖终端、Python、算法与数据结构、线性代数、概率统计、Git、HTTP/SQL、受控工具执行器、测试与调试、操作系统并发，以及网络协议基础。
 
-数学与模型基础（概率、数学期望、马尔可夫链、Transformer、PyTorch）；Agent核心（工具调用、规划、RAG、记忆）；训练和系统（SFT、DPO、强化学习、Harness、Multi-Agent、安全、评测）；实战及面试（代码审计、代码修复、推理部署、LoRA、岗位要求），包含基础章节、扩展章节与附录，具体以最新目录为准。
+## 章节结构与目录
 
-## 使用
+- 一级标题（#）：章
+- 二级标题（##）：节
+- 三级标题（###）：小节
+- **PDF目录只展示章、节；小节只在正文显示和编号。**
 
-运行离线实验：
+章节源文件保存在 chapters/，编译时依序组合为 book/source.md。合订文件是构建产物，修改章节应编辑 chapters/ 中的源文件。
 
-```bash
+## 运行实验
+
+Python标准库实验：
+
+~~~bash
+python3 examples/beginner_cli.py self-test
+python3 examples/foundation_algorithms.py
+python3 examples/foundation_math.py
+python3 examples/foundation_http_sql.py
+python3 examples/beginner_tool_agent.py self-test
+python3 examples/foundation_testing.py
+python3 examples/foundation_concurrency.py
+python3 examples/foundation_network.py
 python3 examples/toy_agent.py
-```
+python3 examples/markov_control.py
+python3 examples/evaluate_agents.py
+~~~
 
-使用 XeLaTeX、Pandoc 与 Noto CJK 构建 PDF：
+PyTorch实验需要额外安装兼容的PyTorch版本：
 
-```bash
+~~~bash
+python3 examples/tiny_transformer.py
+~~~
+
+## 构建教材PDF
+
+需要 Pandoc、XeLaTeX、中文字体及常用LaTeX宏包：
+
+~~~bash
 bash scripts/build_pdf.sh
-```
+python3 scripts/check_heading_hierarchy.py --pdf dist/Agent_Algorithm_Textbook_2026.pdf
+~~~
 
-Push 到 main 后 GitHub Actions 也会自动运行实验、构建PDF，并尝试把最新PDF提交回仓库。若自动提交受到GitHub仓库权限限制，可从Actions的构建产物中下载PDF。
+生成路径：dist/Agent_Algorithm_Textbook_2026.pdf。
 
-## 持续迭代
+GitHub Actions会运行离线实验并验证PDF编译，main分支通过后发布新的PDF。若PR尚未合并，请到相应PR的Actions产物下载预览，而非将主分支PDF视作已经更新。
 
-- [版本计划](ROADMAP.md)
-- [质量门槛](QUALITY.md)
-- [更新日志](CHANGELOG.md)
+## 版本与规模
 
-**版本说明：** 初始排版快照的PDF为67页，Markdown重新构建的版式可能不同。仓库里的PDF以CI实际构建结果为准。本项目不是厂商官方教材，内容需要随论文、岗位和工程实践更新。
+目前仍是持续编写的初稿，不应将已有几十或上百页视作已完成千页教材。最终目标为**至少1000页有效教学内容**，计划由易到难扩充、整合和验证，实际完成情况以编译PDF页数与验收记录为准。
 
-**许可：** 尚未选择开源许可证。公开仓库不表示作者授权随意再分发。
+[验收规范](QUALITY.md) · [版本记录](CHANGELOG.md)
+
+本仓库尚未指定开放许可。仓库公开可访问不等同于内容可以自由再许可、复制或重新出版。
