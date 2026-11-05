@@ -68,10 +68,10 @@ BFS保证的是**最少边数**，不是任意加权图中的最小成本。
 
 在边成本非负时，Dijkstra算法始终扩展当前已知累计成本最小的状态，并通过松弛更新相邻状态：
 
-$$
+\begin{equation*}
 g(s')\leftarrow
 \min\{g(s'),\,g(s)+c(s,a)\}.
-$$
+\end{equation*}
 
 当目标首次以当前最小成本出队时，能够得到最小累计成本。若存在负权边，普通Dijkstra的保证不再成立。
 
@@ -83,9 +83,9 @@ $$
 
 Dijkstra不利用与目标有关的额外信息。A*为每个状态构造：
 
-$$
+\begin{equation*}
 f(s)=g(s)+h(s),
-$$
+\end{equation*}
 
 其中：
 
@@ -98,9 +98,9 @@ A*优先扩展 $f(s)$ 较小的状态。
 
 若真实最优剩余成本为 $h^*(s)$，启发式满足：
 
-$$
+\begin{equation*}
 0\le h(s)\le h^*(s),
-$$
+\end{equation*}
 
 则称其为可采纳（admissible）。它不会高估剩余成本。
 
@@ -117,9 +117,9 @@ h(\text{开始})=4.$$
 
 更强的条件是：对于每条边 $s\to s'$，
 
-$$
+\begin{equation*}
 h(s)\le c(s,a)+h(s').
-$$
+\end{equation*}
 
 这称为一致性（consistent）。非负成本加上一致启发式，使常见的图搜索实现能够在状态从优先队列正式取出后安全地标记为已完成。
 
@@ -137,9 +137,9 @@ $$
 
 假设必须先读取文件，再形成补丁，然后运行测试。依赖关系可以写为：
 
-$$
+\begin{equation*}
 \text{读取}\prec\text{修复}\prec\text{验证}.
-$$
+\end{equation*}
 
 若存在两个互不依赖的测试，它们可以并发执行；如果两个操作同时写同一个文件，则必须明确版本冲突和写入顺序。
 
@@ -266,7 +266,7 @@ $$P(S_{t+1}=s'\mid S_t=s,A_t=a).$$
 
 在合法行动集合 $\mathcal A(s)$ 上：
 
-$$
+\begin{equation*}
 \boxed{
 V_t(s)=\min_{a\in\mathcal A(s)}
 \left[
@@ -274,7 +274,7 @@ c_t(s,a)+
 \sum_{s'}P(s'\mid s,a)V_{t+1}(s')
 \right].
 }
-$$
+\end{equation*}
 
 这来自条件期望的线性性、全概率公式和在当前状态下选取最小条件期望成本。这里的 $c_t(s,a)$ 表示已将即时随机成本取条件期望的结果。
 
@@ -311,12 +311,12 @@ $$b_t(s)=P(S_t=s\mid O_{0:t},A_{0:t-1}).$$
 
 观察到告警后的故障概率：
 
-$$
+\begin{equation*}
 P(F\mid+)=
 \frac{0.8\times0.1}
 {0.8\times0.1+0.05\times0.9}
 =\frac{0.08}{0.125}=0.64.
-$$
+\end{equation*}
 
 这表示获得告警证据后，按给定模型故障概率更新为64%，不意味着故障已被确定。是否执行修复，还要结合修复成本、误修风险及进一步检查的价值。
 
@@ -329,11 +329,11 @@ $$\widetilde b_{t+1}(s')
 
 再用观测似然更新：
 
-$$
+\begin{equation*}
 b_{t+1}(s')=
 \frac{P(o\mid s',a)\widetilde b_{t+1}(s')}
 {\sum_uP(o\mid u,a)\widetilde b_{t+1}(u)}.
-$$
+\end{equation*}
 
 这就是部分可观察序列决策中常见的信念状态更新。实际系统中需要估计转移与观测模型，否则得到的概率只是建立在假设上的数值。
 
@@ -457,6 +457,227 @@ python examples/agent_architecture_patterns.py
 - Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*：https://arxiv.org/abs/2210.03629
 - LangGraph，中断与检查点文档：https://docs.langchain.com/oss/python/langgraph/interrupts
 - OpenAI Agents SDK，运行与编排：https://developers.openai.com/api/docs/guides/agents/running-agents
+
+
+## 从规划器到完整项目：亲手实现一个可验证的代码修复Agent
+
+### 一次代码修复不只是生成新函数
+
+假设项目里的计算函数应执行两数相加，却错误地使用减法：
+
+~~~python
+def add(a, b):
+    return a - b
+~~~
+
+模型提出正确候选代码并不复杂。但一个具有实际写入能力的Agent，还需要回答：
+
+- 修改目标文件是否在当前任务允许的路径中？
+- 它看到的文件版本是否仍是当前版本？
+- 是否有人批准把修改写入工作区？
+- 候选代码是否通过独立于生成器的验收测试？
+- 执行过程中出错，是否保留了原文件？
+- 操作确认消息丢失后，重新提交会不会造成第二次写入？
+
+因此，本节将Agent拆成六种职责明确的组件，真正运行一次观察、提议、审核、验证与提交的闭环。
+
+### 第一步：定义可验证任务
+
+设任务为：
+
+\begin{equation*}
+\mathcal T=(F,\ H_0,\ \mathcal A,\ G,\ B).
+\end{equation*}
+
+其中 $F$ 是获授权目标文件；$H_0$ 是观察时文件内容的SHA-256指纹；$\mathcal A$ 是允许执行的操作集合；$G$ 是必须通过的验收条件；$B$ 是预算。
+
+在本实验中：
+
+- 只能修改临时目录中的calculator.py；
+- 初始文件包含带缺陷的add(a,b)函数；
+- 候选只能替换这个已知函数；
+- 需要显式批准才能把修改提交到工作区；
+- 必须通过整数、负数和零值的测试；
+- 同一操作ID只能具有一种固定修改内容。
+
+这与生产环境的“用户自然语言要求修复整个项目”差距很大，但能在不依赖网络API的情况下逐步验证完整执行协议。
+
+### 第二步：将观察结果绑定版本
+
+Agent观察文件后，得到原始文本 $x$ 和指纹：
+
+\begin{equation*}
+h_0=\operatorname{SHA256}(x).
+\end{equation*}
+
+候选补丁作为结构化对象保存：
+
+~~~python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Proposal:
+    relative_path: str
+    original_sha: str
+    replacement: str
+    operation_key: str
+~~~
+
+如果文件被其他程序更改，即使修改仍然看起来正确，旧补丁也不能直接覆盖新内容。提交前读取当前文件并检验：
+
+\begin{equation*}
+h_{\rm current}=h_0.
+\end{equation*}
+
+若不相等，返回“版本冲突”，重新观察并生成适用于新版本的补丁。这个策略类似乐观并发控制。
+
+### 第三步：区分计划许可与执行许可
+
+规划器能够产生候选修改，但系统不应让它自行决定是否越过人工审批。审批门槛由工具执行器检查：
+
+~~~python
+if not human_approved:
+    raise PermissionError("write requires approval")
+~~~
+
+此外，还要检查文件必须属于明确授权的集合、路径不能逃逸工作区，以及调用不能超出预算。文件名只是参数，不是资源访问权限。
+
+截至2026年的OpenAI Agents SDK官方文档将输入Guardrails、输出Guardrails、工具Guardrails与人工审批分成不同环节，并指出Agent级输入/输出Guardrail并不自动覆盖每个中间工具调用。
+
+因此对修改文件或提交工单等动作，应在**真正产生副作用的工具边界**实施检查，不能只在第一次收到用户请求时检查一次。
+
+### 第四步：在提交前运行独立验收
+
+候选代码通过语法分析不代表业务正确。Python里减法函数也可以合法解析，甚至在某些输入上产生偶然正确的结果。独立验收至少包括：
+
+1. 代码符合本任务允许的结构；
+2. 已知错误能够被正确修复；
+3. 不同输入类别的回归样例全部通过；
+4. 修改范围与预期一致。
+
+本例采用AST白名单，只允许单个没有装饰器、没有额外调用的add(a,b)函数，其主体只能是a+b或a-b，且没有其他语句。之后才运行一组明确的算术测试。
+
+这种严格白名单仅适合极小的教学对象，**不是安全执行任意第三方Python代码的沙箱**。实际代码审计Agent应使用隔离进程、最小文件和网络权限、独立镜像及资源限制，不能因为AST检查通过就随意执行未知项目。
+
+### 第五步：暂存、验证和原子替换
+
+将修复内容先写入同一工作目录的暂存文件，独立测试通过且目标指纹仍匹配后，再进行原子替换：
+
+~~~text
+已授权的目标文件
+       ↓ 观察 + SHA-256
+生成固定范围的候选修复
+       ↓ 审批检查
+暂存候选文件
+       ↓ AST范围检查 + 独立测试
+再次确认原文件SHA-256
+       ↓ 同文件系统原子替换
+写入操作结果与证据
+~~~
+
+这里所说原子替换只表示使用同一文件系统上的替换机制尽量避免半成品目标文件，并不意味着提供数据库与文件联合事务，也不保证突然断电后的持久性。在多进程真实系统里，还需要持久锁或原子版本协议处理提交竞争。
+
+### 第六步：让重试与副作用彼此可区分
+
+设某次提交的业务操作键为 $k$，将路径、旧指纹和新内容组成载荷指纹 $d$。
+
+记住：
+
+\begin{equation*}
+(k,d)\mapsto r,
+\end{equation*}
+
+其中 $r$ 是已确认的结果。若再次收到相同的 $(k,d)$，直接返回原结果；若相同 $k$ 携带不同 $d$，拒绝冲突。
+
+在教学代码中，这个映射保存在进程内存，因此只能验证**同一进程的重复调用**。真实长任务恢复需要把结果记录持久化，并确认异常重启后仍能恢复状态。
+
+这个细节十分关键：不能因为一份演示使用了操作键，就声称它在多机、断电、网络故障条件下拥有业务效果恰好一次的保证。
+
+### 用状态不变量证明修复流程的正确性
+
+可以定义以下三个不变量：
+
+\begin{equation*}
+\operatorname{Committed}\Rightarrow
+\operatorname{Approved}\land\operatorname{TestsPassed},
+\end{equation*}
+
+\begin{equation*}
+\operatorname{Committed}\Rightarrow
+\operatorname{SHA256}(\text{原文件})=h_0
+\quad\text{（提交前检查时刻）},
+\end{equation*}
+
+\begin{equation*}
+\operatorname{ReplaySameKeySamePayload}
+\Rightarrow
+\Delta\operatorname{SideEffects}=0.
+\end{equation*}
+
+第一个性质保证没有通过审批与独立测试的修改不能进入工作区；第二个性质在单进程模型中防止错误覆盖旧版本；第三个性质要求相同操作的重放不增加本地副作用计数。
+
+生产版本还应验证文件锁与竞争窗口、原子提交结果持久化、工件签名和身份授权有效期。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.95\linewidth}{!}{\input{figures/verified_code_repair_flow.tex}}
+\caption{代码修复Agent的验证闭环：观察、版本校验、独立测试与提交}
+\end{figure}
+
+### 运行完整项目
+
+~~~bash
+python examples/verified_code_repair_agent.py
+~~~
+
+程序使用Python标准库自动建立临时工作区，并在执行后清理。无需Docker、模型API或真实GitHub凭证。
+
+实验会依次执行：
+
+1. 证明原有减法函数无法通过目标算术测试；
+2. 生成有限范围的加法修复候选；
+3. 拒绝未获批准的写入请求；
+4. 拒绝语法合法但业务测试失败的候选；
+5. 批准修复并通过独立测试，原子替换文件；
+6. 再提交同一操作键，副作用计数仍为1；
+7. 拒绝旧版本指纹、越权路径与包含额外代码的候选。
+
+### 如何升级为真正的代码Agent
+
+当教学例子运行通过后，可以沿以下方向增加复杂度，但每项都需要配套验收：
+
+- 将确定性候选生成器替换为实际LLM接口；结构化输出仍须被当作待验证数据；
+- 将单个文件扩展为多文件修改，绑定一个不可变Git提交快照；
+- 将固定算术测试扩展为独立测试框架，记录测试版本、退出码与真实日志；
+- 使用受限进程或沙箱执行未知项目代码，并明确网络、文件和资源授权范围；
+- 将内存操作日志改为持久数据库，模拟进程退出后的恢复；
+- 为并发Agent加入共享黑板版本检查和冲突重新规划；
+- 引入固定难度的代码任务集，分别测量成功率、成本、延迟及错误修改率。
+
+多Agent不应成为第一步。先让一个Agent能够稳定、可验证、可恢复地完成一条任务，再决定哪些环节值得并行。
+
+### 练习与解答
+
+**题一：** 代码能通过Python语法检查，为什么仍不能直接提交？
+
+**解：** 语法正确只说明代码结构可以被解析，不说明实现满足任务条件。原始减法缺陷也能通过语法检查，必须使用独立业务测试。
+
+**题二：** 观察时文件SHA与提交前不一致，为什么不应继续写入？
+
+**解：** 目标已经变化，旧补丁的前提可能失效。直接写入可能覆盖其他执行者的修复，必须重新获取状态再计算。
+
+**题三：** 同一进程的重复调用没有造成二次写入，能否说明系统已经实现崩溃后的恰好一次？
+
+**解：** 不能。内存记录在进程退出后可能丢失，而且还没有覆盖外部系统提交成功但本地确认丢失的情况，需要持久日志与远端幂等或查询协议。
+
+**题四：** 测试Agent自己写入“PASS”文字是否满足独立验收？
+
+**解：** 不满足。实际执行器应运行有明确版本、输入和断言的测试，并保留可信退出状态与结果证据；模型生成的PASS只是未经验证的文本。
+
+### 延伸阅读
+
+- OpenAI Agents SDK Guardrails and human review：https://developers.openai.com/api/docs/guides/agents/guardrails-approvals
+- Python AST模块文档：https://docs.python.org/3/library/ast.html
 
 
 ## 离线代码实验：从A*到故障恢复
