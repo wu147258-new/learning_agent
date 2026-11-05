@@ -1,0 +1,20 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ state/.style={draw=deepblue,fill=blue!6,rounded corners=2pt,minimum width=25mm,minimum height=11mm,align=center},
+ terminal/.style={draw=green!45!black,fill=green!8,rounded corners=2pt,minimum width=24mm,minimum height=11mm,align=center},
+ inspectbox/.style={draw=accent,fill=orange!8,rounded corners=2pt,minimum width=29mm,minimum height=11mm,align=center},
+ arr/.style={->,thick,deepblue}]
+\node[state] (start) at (0,0) {起始状态\\故障原因隐藏};
+\node[terminal] (guess0) at (4,2.1) {直接猜0\\正确时奖励1};
+\node[terminal] (guess1) at (4,-2.1) {直接猜1\\正确时奖励1};
+\node[inspectbox] (inspect) at (4,0) {Inspect\\成本0.1};
+\node[state] (reveal) at (8,0) {获得观测$H$\\再次选择动作};
+\node[terminal] (finish0) at (11.5,1.15) {若$H=0$\\正确选择0};
+\node[terminal] (finish1) at (11.5,-1.15) {若$H=1$\\正确选择1};
+\draw[arr] (start.north east) -- node[above,sloped]{Guess0} (guess0.west);
+\draw[arr] (start.south east) -- node[below,sloped]{Guess1} (guess1.west);
+\draw[arr] (start.east)--node[above]{检查}(inspect.west);
+\draw[arr] (inspect.east)--(reveal.west);
+\draw[arr] (reveal.north east)--(finish0.west);
+\draw[arr] (reveal.south east)--(finish1.west);
+\node[anchor=north west,align=left,text=deepblue] at (-1.6,-3.1) {隐藏原因均匀随机；检查路径最终奖励为正确性奖励减0.1。8种完整结果用于精确策略梯度验证。};
+\end{tikzpicture}
