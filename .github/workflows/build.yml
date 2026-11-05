@@ -44,9 +44,10 @@ jobs:
           python3 examples/beginner_tool_agent.py run
           python3 scripts/check_heading_hierarchy.py
           test "$(python3 examples/beginner_cli.py add 12 30)" = "42"
-          if python3 examples/beginner_cli.py add 12 invalid >/dev/null 2>&1; then
           python3 examples/rag_bm25_lab.py
           python3 examples/rag_evidence_lab.py
+          python3 examples/agent_architecture_patterns.py
+          if python3 examples/beginner_cli.py add 12 invalid >/dev/null 2>&1; then
             echo "Invalid CLI input must have nonzero exit status" >&2
             exit 1
           fi
@@ -87,3 +88,5 @@ jobs:
           python examples/transformer_attention_lab.py
           python examples/sft_dpo_rl_lab.py
           python examples/tiny_lm_sft_dpo.py
+          python examples/model_architecture_patterns.py
+          python examples/model_training_architectures.py
