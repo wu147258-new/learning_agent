@@ -1,0 +1,17 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ boxx/.style={draw=deepblue,fill=blue!5,rounded corners=2pt,minimum width=28mm,minimum height=10mm,align=center},
+ danger/.style={draw=accent,fill=red!6,rounded corners=2pt,minimum width=31mm,minimum height=10mm,align=center},
+ okay/.style={draw=green!45!black,fill=green!8,rounded corners=2pt,minimum width=30mm,minimum height=10mm,align=center},
+ arr/.style={->,thick,deepblue}]
+\node[boxx] (user) at (0,1.5) {可信任务与授权\\工具清单、资源范围};
+\node[danger] (doc) at (0,-1.2) {不可信外部证据\\网页、代码、工具响应};
+\node[boxx] (model) at (4,0.4) {候选动作生成\\模型可提出请求};
+\node[boxx] (auth) at (8,0.4) {执行器强制校验\\权限、类型、预算};
+\node[okay] (check) at (12,0.4) {独立验收\\任务成功与副作用};
+\draw[arr] (user.east) -- (model.north west);
+\draw[arr,accent] (doc.east) -- node[below]{仅作为数据} (model.south west);
+\draw[arr] (model.east) -- (auth.west);
+\draw[arr] (auth.east) -- (check.west);
+\draw[->,thick,accent,dashed] (doc.east) to[out=-20,in=-90] node[below]{禁止直接授权} (auth.south);
+\node[anchor=north west,align=left,text=deepblue] at (0,-2.7) {评测应分别检查：任务完成、预算、权限拒绝、检索证据与执行后真实状态。};
+\end{tikzpicture}

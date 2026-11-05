@@ -1,0 +1,16 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ task/.style={draw=deepblue,fill=blue!5,rounded corners=2pt,minimum height=10mm,minimum width=22mm,align=center},
+ validate/.style={draw=green!40!black,fill=green!7,rounded corners=2pt,minimum height=10mm,minimum width=22mm,align=center},
+ edge/.style={->,thick,deepblue}]
+\node[task] (a) at (0,0) {A 读取代码\\耗时2};
+\node[task] (b) at (3,1.1) {B 定位缺陷\\耗时4};
+\node[task] (c) at (3,-1.1) {C 依赖扫描\\耗时3};
+\node[task] (d) at (6.4,0) {D 生成补丁\\耗时5};
+\node[validate] (e) at (9.7,0) {E 验证结果\\耗时2};
+\draw[edge] (a.east) -- (b.west);
+\draw[edge] (a.east) -- (c.west);
+\draw[edge] (b.east) -- (d.west);
+\draw[edge] (c.east) -- (d.west);
+\draw[edge] (d.east) -- (e.west);
+\node[align=left,anchor=north west,text=deepblue] at (0,-2.1) {关键路径 A$\to$B$\to$D$\to$E：$2+4+5+2=13$\\工作量总和：$2+4+3+5+2=16$，增加执行者不能突破关键路径下界。};
+\end{tikzpicture}

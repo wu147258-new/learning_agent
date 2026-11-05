@@ -1,0 +1,20 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ st/.style={draw=deepblue,fill=blue!5,rounded corners=2pt,minimum width=25mm,minimum height=10mm,align=center},
+ risk/.style={draw=accent,fill=red!5,rounded corners=2pt,minimum width=27mm,minimum height=10mm,align=center},
+ ok/.style={draw=green!45!black,fill=green!6,rounded corners=2pt,minimum width=26mm,minimum height=10mm,align=center},
+ edge/.style={->,thick,deepblue}]
+\node[st] (prepare) at (0,0) {写意图日志\\PREPARED + 操作ID};
+\node[st] (send) at (3.5,0) {发送外部请求\\携带幂等键};
+\node[st] (remote) at (7,0) {远端处理\\原子去重与返回};
+\node[ok] (commit) at (10.5,0) {结果确认\\SUCCEEDED};
+\node[risk] (unknown) at (5.1,-2.0) {响应丢失或超时\\本地UNKNOWN};
+\node[st] (reconcile) at (9.0,-2.0) {按操作ID查询\\查证后恢复};
+\draw[edge] (prepare.east) -- (send.west);
+\draw[edge] (send.east) -- (remote.west);
+\draw[edge] (remote.east) -- (commit.west);
+\draw[edge,accent] (remote.south) |- (unknown.east);
+\draw[edge,accent] (send.south) |- (unknown.west);
+\draw[edge] (unknown.east) -- (reconcile.west);
+\draw[edge] (reconcile.east) -| (commit.south);
+\node[align=left,anchor=north west,text=deepblue] at (0,-3.1) {UNKNOWN并不证明外部操作失败。没有远端去重协议时，不可盲目重试有副作用的写请求。};
+\end{tikzpicture}
