@@ -377,6 +377,12 @@ $
 
 真正最优是B+C：成本10、收益16。可见0-1选择不具有简单贪心比例算法的一般最优性。
 
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/context_budget_knapsack.tex}}
+\caption{相同Token预算下贪心打包与0-1背包最优解的差异}
+\end{figure}
+
 ### 动态规划的状态递推
 
 令 $F(i,b)$ 表示只考虑前 $i$ 个片段、预算为 $b$ 时最大估计收益。边界：
