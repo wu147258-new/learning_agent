@@ -40,6 +40,7 @@ jobs:
           python3 examples/agent_planning_lab.py
           python3 examples/verified_code_repair_agent.py
           python3 examples/inference_quantization_lab.py
+          python3 examples/speculative_decoding_lab.py
           python3 examples/agent_runtime_recovery.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
