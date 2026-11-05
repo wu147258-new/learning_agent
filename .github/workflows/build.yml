@@ -94,3 +94,14 @@ jobs:
           python examples/model_architecture_patterns.py
           python examples/model_training_architectures.py
           python examples/multistep_rl_rollout_lab.py
+
+  offline-agent-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify standalone Agent and inference experiments
+        run: |
+          python3 examples/verified_code_repair_agent.py
+          python3 examples/inference_quantization_lab.py
+          python3 examples/speculative_decoding_lab.py
