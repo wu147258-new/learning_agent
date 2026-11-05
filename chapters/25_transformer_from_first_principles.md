@@ -456,6 +456,69 @@ python examples/model_architecture_patterns.py
 - OpenAI, *gpt-oss Model Card*：https://deploymentsafety.openai.com/gpt-oss/architecture
 
 
+## 2026年的混合架构：为什么不再每层都做完整Softmax注意力
+
+### 长上下文的计算瓶颈在哪里
+
+标准因果Softmax注意力处理长度为 $T$ 的序列时，需要考虑约 $T(T+1)/2$ 个历史位置关系。无特殊优化时，单层注意力成对计算量随 $T^2$ 增长。
+
+一种思路是在部分层使用可递推的状态摘要，而在其他层保留完整或局部Softmax注意力。这类设计常称为**混合注意力（hybrid attention）**，它与MoE是否采用稀疏专家是不同的设计维度。
+
+### 从前缀求和推导线性注意力的状态
+
+为了理解固定大小状态的来源，先考虑一个**教学用的核化注意力简化式**。令 $\phi(q),\phi(k)\in\mathbb R^r$ 为非负特征映射，定义：
+
+$
+S_t=\sum_{j=1}^{t}\phi(k_j)v_j^\mathsf T,\qquad
+z_t=\sum_{j=1}^{t}\phi(k_j).
+$
+
+它们可以逐位置更新：
+
+$
+S_t=S_{t-1}+\phi(k_t)v_t^\mathsf T,\qquad
+z_t=z_{t-1}+\phi(k_t).
+$
+
+当前查询的输出：
+
+$
+\boxed{
+o_t=\frac{\phi(q_t)^\mathsf TS_t}
+{\phi(q_t)^\mathsf Tz_t}.
+}
+$
+
+只要分母为正，这就等于对此前所有键和值按 $\phi(q_t)^\mathsf T\phi(k_j)$ 权重加权归一化。这类状态只需要保存 $S_t$ 与 $z_t$，其维度不随历史Token数线性增长。
+
+但它一般不等价于标准指数Softmax注意力；这里也**不是Qwen3.5的Gated DeltaNet完整实现**。真正的门控与状态更新机制需要阅读对应架构源码和技术文档。
+
+### Qwen3.5的公开实现体现了什么取舍
+
+Hugging Face Transformers的Qwen3.5模型文档披露：其文本骨干采用混合注意力，按**3层Gated DeltaNet线性注意力加1层全注意力**的比例组织；系列还包含密集与MoE模型，并使用多模态位置表达。
+
+这提供一个实际教材案例：不是所有层都用 $T\times T$ 的标准注意力矩阵，部分层可利用状态式处理长序列，同时保留用于更精确读取的全注意力层。
+
+**不能从“线性注意力层更多”直接推出某模型在任何序列长度下都更快**：吞吐还受GPU算子实现、矩阵宽度、并行、缓存与请求批量影响。
+
+### DeepSeek-V4.1-Flash：不同于纯Decoder的组织方式
+
+DeepSeek官方在2026年9月公开的V4.1-Flash介绍中称其采用**Causal Encoder–Decoder**结构，使用MoE，并披露输入与输出阶段不同的活跃参数量（分别为8B和16B）。它与前文纯Decoder Transformer的教学模型并不完全同构。
+
+该案例说明，即使都称为生成式语言模型，也可能对输入编码与输出生成采用不同计算路径。不能将某一个典型Decoder结构当作“全部主流模型”的唯一内部结构。
+
+上述参数和资源优势属于厂商公开技术声明，不能未经独立测试直接解释为在所有硬件与工作负载上的实际吞吐保证。
+
+### 练习
+
+1. 标准全注意力的 $T\times T$ 分数矩阵，长度从1024增至4096时，元素数量增加多少倍？
+2. 若状态矩阵 $S_t\in\mathbb R^{r\times d_v}$、向量 $z_t\in\mathbb R^r$，忽略额外开销，固定状态要保存多少个元素？
+3. 为什么上述状态式注意力一般不能直接替代标准Softmax并保证相同输出？
+4. 对比纯Decoder、混合注意力Decoder和Causal Encoder–Decoder，分别列出推理与KV缓存需要重新考虑的环节。
+
+参考：Qwen3.5模型文档 https://huggingface.co/docs/transformers/model_doc/qwen3_5 ；DeepSeek V4.1-Flash公告 https://deepseek.com/en/news/deepseek-v4-1-flash/ 。
+
+
 ## RoPE如何将位置差放入向量内积
 
 ### 二维旋转
