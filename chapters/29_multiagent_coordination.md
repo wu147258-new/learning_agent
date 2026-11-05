@@ -155,17 +155,17 @@ Agent Card可以说明专业Agent擅长的任务、支持的接口以及认证�
 
 可以把授权拆成两类：
 
-$
+$$
 \operatorname{CanDelegate}(A,B,t)=
 \operatorname{TrustedPeer}(A,B)
 \land \operatorname{TaskAllowed}(A,B,t),
-$
+$$
 
-$
+$$
 \operatorname{CanRead}(B,d)=
 \operatorname{IdentityValid}(B)
 \land \operatorname{DocumentScope}(B,d).
-$
+$$
 
 前者判断是否允许向B委派任务，后者判断B能否访问文档d。这两个条件需要分别验证。即使一个Agent被发现、可被委派，也不代表它能浏览发起方的全部数据。
 
