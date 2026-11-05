@@ -104,3 +104,18 @@ python examples/agent_memory_provenance_lab.py
 ~~~
 
 协议案例采用官方公开规范；脚本仅模拟安全边界与状态机，并不声称实现了完整MCP/A2A服务端。
+
+
+## 可运行的推理、强化学习、多模态与代码Agent实验
+
+对应章节已按原有结构穿插扩写，没有新增独立的架构介绍单元：
+
+~~~bash
+python3 examples/inference_quantization_lab.py
+python3 examples/speculative_decoding_lab.py
+python3 examples/verified_code_repair_agent.py
+python3 examples/multistep_rl_rollout_lab.py
+python3 examples/multimodal_patch_fusion_lab.py
+~~~
+
+最后两项需要PyTorch CPU环境。多模态实验只验证Patch和融合算子，不代表实际Qwen3-VL、Llama 4或Gemma 3权重。所有图源在figures目录中可编辑。
