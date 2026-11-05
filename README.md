@@ -85,3 +85,22 @@ python examples/agent_architecture_patterns.py
 ~~~
 
 对应正文为现有Transformer、SFT/DPO/RL、RAG、推理部署、Agent规划、运行时和多Agent章节；**没有新增独立的模型名录或架构单元**。模型案例以公开技术报告和模型卡为依据，代码模拟用于验证算子，不代表重现商用模型权重。
+
+
+本书的Agent系统章节新增与2026年协议生态相关的实践内容，均穿插在原有章节，不新增独立单元：
+
+- [RAG检索](chapters/23_rag_retrieval_deep_dive.md)：Token预算、0-1背包与多来源证据覆盖。
+- [证据验证](chapters/24_rag_evidence_verification.md)：长期记忆、来源版本、过期与撤销。
+- [Agent运行时](chapters/28_agent_runtime_recovery.md)：MCP工具与资源契约、JSON-RPC、权限与幂等。
+- [多Agent协作](chapters/29_multiagent_coordination.md)：A2A能力发现、Task生命周期与跨Agent委派。
+- [评测安全](chapters/30_agent_eval_security.md)：MCP/A2A信任边界与负向验收。
+
+新增全部离线代码（Python标准库即可执行）：
+
+~~~bash
+python examples/agent_protocol_contracts.py
+python examples/context_budget_lab.py
+python examples/agent_memory_provenance_lab.py
+~~~
+
+协议案例采用官方公开规范；脚本仅模拟安全边界与状态机，并不声称实现了完整MCP/A2A服务端。

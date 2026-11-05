@@ -141,6 +141,81 @@ AND status = 'PREPARED' AND version = ?;
 
 SQLite事务能够保护同一数据库内按事务协议执行的写入，但发送邮件、修改远程仓库或调用第三方接口不因此成为SQLite事务的组成部分。跨服务的一致性通常需要去重协议、可靠事件通知、补偿操作、可查询的外部状态等额外机制。
 
+## MCP工具契约：从模型提议到受控执行
+
+### 为什么需要结构化工具协议
+
+前面已说明，模型生成的动作不等于系统授权。本节进一步讨论一个实际工程接口：模型提出读取告警的请求，执行器怎样在调用前核对参数、租户、权限和调用结果？
+
+MCP（Model Context Protocol）2025-11-25规范将参与者分为Host、Client与Server，基于JSON-RPC 2.0通信。Server可以提供Tools、Resources、Prompts；工具负责执行操作，资源用于提供上下文，二者不应混淆。
+
+### 工具调用的消息结构
+
+MCP提供tools/list用于发现工具、tools/call用于调用工具。一个简化的JSON-RPC请求示例如下：
+
+~~~json
+{
+  "jsonrpc": "2.0",
+  "id": 7,
+  "method": "tools/call",
+  "params": {
+    "name": "read_alert",
+    "arguments": {"alert_id": "A-102"}
+  }
+}
+~~~
+
+真实服务还需完成初始化、能力协商和适用的认证过程，不能把这一消息当成完整的网络会话。
+
+### Schema验证不等于授权
+
+假设read_alert要求告警编号满足前缀A-及若干数字。即使输入格式正确，也不能证明调用者有权查看该告警。服务端必须使用可信身份对应的租户信息过滤数据：
+
+~~~sql
+SELECT alert_id, summary
+FROM alerts
+WHERE tenant_id = ? AND alert_id = ?;
+~~~
+
+可以将许可条件写成：
+
+$$
+\operatorname{Permit}(u,r,a)
+=
+\operatorname{Authenticated}(u)
+\land\operatorname{AllowedScope}(u,a)
+\land\operatorname{ResourceAllowed}(u,r).
+$$
+
+模型不能仅凭参数中填写另一个租户标识，改变真实授权范围。
+
+### 工具元数据与权限的信任边界
+
+工具描述可能由外部Server提供，是需要校验的数据，而不是能修改服务端权限策略的授权指令。特别应避免把远端描述的自然语言直接映射成高权限系统操作。
+
+MCP官方安全实践还特别说明Token Passthrough与Confused Deputy风险：服务端应验证访问令牌受众、范围和有效期，不能不经验证地将客户端令牌直接当作下游服务凭证。
+
+### 重试时区分两种ID
+
+JSON-RPC消息中的id主要负责关联请求和响应，业务写入动作的幂等效果则需要单独的操作标识、服务端去重和执行结果查询机制。不能把同一个id当作外部业务已被恰好一次执行的证明。
+
+### 教学实验与思考
+
+运行：
+
+~~~bash
+python examples/agent_protocol_contracts.py
+~~~
+
+实验验证方法名、参数模式、授权租户和稳定业务操作键，并拒绝重复键与不同请求内容的组合。它模拟协议边界，不是完整MCP SDK实现。
+
+**习题：** 如果用户只具有读取权限，但MCP服务端公开了一个写入工具，是否能调用？为什么？
+
+**解：** 不能。服务端存在某工具与当前用户具有工具执行权限是不同命题；写入操作需要独立的真实授权。
+
+参考：MCP官方规范 https://modelcontextprotocol.io/specification/2025-11-25 ；工具规范 https://modelcontextprotocol.io/specification/2025-11-25/server/tools ；安全实践 https://modelcontextprotocol.io/docs/2025-11-25/tutorials/security/security_best_practices 。
+
+
 ## 业务效果恰好一次的限制
 
 ### 至多一次与至少一次

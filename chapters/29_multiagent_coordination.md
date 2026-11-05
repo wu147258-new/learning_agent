@@ -135,6 +135,126 @@ $$
 
 两个Agent可以修改不同代码行，但更改组合起来仍可能使系统失败。例如A把函数改为异步，B沿用同步调用方式。即使Git自动合并成功，也必须重新执行系统测试。
 
+## A2A协议：让独立Agent交换任务，而不混淆工具调用
+
+### MCP与A2A解决的问题不同
+
+前一章介绍的MCP主要让Agent应用发现工具、访问资源并调用函数。如果团队里出现两个由不同组织部署的Agent，例如省级审计Agent与合作方检索Agent，双方可能有独立的身份系统、工具和运行时；此时“直接调用另一个Agent内部函数”不再现实。
+
+Agent2Agent（A2A）协议面向独立Agent之间的能力发现、任务交互和结果交换。它通过Agent Card描述可用能力，以Task记录可能持续较长时间的工作，并允许同步响应、流式更新或异步通知等交互机制。这里的Task不是一次JSON-RPC工具调用的同义词。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.96\linewidth}{!}{\input{figures/agent_protocol_layers.tex}}
+\caption{同一任务中A2A负责跨Agent委派，MCP负责Agent与工具服务之间的结构化调用}
+\end{figure}
+
+### 发现能力与获得权限不是一回事
+
+Agent Card可以说明专业Agent擅长的任务、支持的接口以及认证要求。但公开声明“支持代码安全扫描”，并不意味着它有权读取当前项目代码。
+
+可以把授权拆成两类：
+
+$$
+\operatorname{CanDelegate}(A,B,t)=
+\operatorname{TrustedPeer}(A,B)
+\land \operatorname{TaskAllowed}(A,B,t),
+$$
+
+$$
+\operatorname{CanRead}(B,d)=
+\operatorname{IdentityValid}(B)
+\land \operatorname{DocumentScope}(B,d).
+$$
+
+前者判断是否允许向B委派任务，后者判断B能否访问文档d。这两个条件需要分别验证。即使一个Agent被发现、可被委派，也不代表它能浏览发起方的全部数据。
+
+### 任务状态为什么需要标准化
+
+按照当前A2A规范，TaskState的规范枚举名包括TASK_STATE_SUBMITTED、TASK_STATE_WORKING、TASK_STATE_COMPLETED、TASK_STATE_FAILED、TASK_STATE_CANCELED、TASK_STATE_REJECTED、TASK_STATE_INPUT_REQUIRED、TASK_STATE_AUTH_REQUIRED以及TASK_STATE_UNSPECIFIED。INPUT_REQUIRED表示等待额外信息，AUTH_REQUIRED表示等待身份认证，均属于中断状态而不是最终失败；COMPLETED、FAILED、CANCELED、REJECTED是终止性状态。以下流程图与教学Python示例为便于阅读省略了TASK_STATE_前缀，且只实现其中一部分状态，**并不自称覆盖完整规范**。
+
+对于一项长期代码审计，任务可经历：
+
+~~~text
+SUBMITTED → WORKING → INPUT_REQUIRED
+                         ↓ 补充必要信息
+                       WORKING → COMPLETED
+~~~
+
+如果审计方要求用户确认敏感文件范围，状态进入INPUT_REQUIRED并不表示此前计算全部作废。恢复时应关联原任务的标识和上下文，保留经过授权的证据。
+
+### Task、Message与Artifact的区别
+
+Message用于双方通信，Task用于追踪一项可持续执行的工作，Artifact用于保存任务完成时产生的工件。
+
+比如一次代码审计委派：
+
+~~~text
+Message: "请检查指定提交中是否存在未授权访问"
+Task: task-41, 当前状态WORKING
+Artifact: report-9, 对应commit_sha与验收状态
+~~~
+
+一条消息可以触发一个长期任务；任务中的多次进展不应被随意统计成多个独立任务；工件必须关联实际版本，不能只写“扫描完成”。
+
+### 消息幂等在协议中的真实边界
+
+A2A规范说明Send Message操作**可以**实现幂等，服务端可利用messageId检测重复消息；这不是所有实现都自动具备的保证。
+
+因此，不能单凭“采用A2A协议”就声称绝不会重复创建工单。业务层应另行定义稳定的委派任务键、唯一处理记录及可查询的状态，并防止同一消息编号对应不同内容。
+
+例如：
+
+~~~text
+operation_key = (requester, task_id, step_id)
+payload_digest = SHA256(canonical_payload)
+~~~
+
+当相同operation_key再次出现时，若摘要相同则可以按业务契约返回已处理结果；若摘要不同，应拒绝冲突而不是悄悄覆盖。
+
+### 跨租户协作最容易遗漏的边界
+
+假设甲公司Agent委派乙公司Agent进行审计。乙方返回了两个文档的摘要，但其中一份来自乙方另一个客户的项目。
+
+此时即使传输协议正确、Task状态为COMPLETED，也不代表结果可以披露给甲方。最终验收必须核对输出工件的来源、授权链和租户归属。
+
+审计日志应记录发起方、接收方、业务任务ID、提交版本、授权范围、返回工件与最终验收证据。**协议状态完成和业务验收通过是两个不同的判断。**
+
+### 什么时候不用A2A
+
+如果一个单进程Agent只是调用本机的四个Python函数，引入跨Agent网络协议可能只增加序列化、身份、状态同步与故障恢复开销。
+
+只有跨运行时、跨组织、动态能力发现或长任务委派等需求实际存在时，A2A的互操作性才有意义。即使如此，也应与直接API或受控任务队列做成本与可靠性对比。
+
+### 可运行的任务状态机
+
+~~~bash
+python examples/agent_protocol_contracts.py
+~~~
+
+实验模拟Agent Card能力发现、任务提交、输入暂停、恢复、完成与去重；并测试终止状态不可重新开启、跨租户工件不可访问，以及不同载荷不能复用同一委派键。
+
+该模拟不提供A2A服务器，也不代表所有A2A协议绑定的互操作性已经测试成功。
+
+### 习题及解答
+
+**题一：** 对方Agent Card宣称支持审计，是否能直接将内部全部代码交给它？
+
+**解：** 不能。能力发现只说明候选服务提供某项技能；授权、合同边界、具体任务与文档访问范围必须另外核验。
+
+**题二：** TaskState为COMPLETED是否意味着报告没有漏洞？
+
+**解：** 不能。COMPLETED表明协议任务已完成，报告中的业务判断是否正确，需要独立的代码版本、测试与证据检查。
+
+**题三：** 输入缺失时为什么不应立即把任务标记FAILED？
+
+**解：** INPUT_REQUIRED可表示任务正等待补充信息。在工作仍可恢复的条件下，将其错误归类为FAILED会使后续上下文和部分有效进度难以延续。
+
+### 规范与资料
+
+A2A官方当前规范：https://a2a-protocol.org/latest/specification/ 。协议会继续演进，真实互操作测试必须固定版本与绑定方式，不能只引用会变动的latest路径声称永远兼容。
+
+
 ## 消息重复投递与任务去重
 
 ### 为什么同一条消息可能出现两次

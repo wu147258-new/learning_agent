@@ -1,0 +1,12 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,
+ bar/.style={draw=deepblue,rounded corners=1pt,minimum height=10mm,align=center},
+ labelstyle/.style={anchor=west,align=left,text=deepblue}]
+\node[anchor=west,font=\bfseries] at (0,1.8) {上下文预算：10 Token（教学小例子）};
+\node[bar,fill=orange!12,minimum width=48mm] (A) at (2.4,0.8) {A: 成本6，收益10};
+\node[bar,fill=softgray,minimum width=32mm] (empty) at (6.5,0.8) {剩余4};
+\node[labelstyle] at (8.1,0.8) {按单位收益贪心先选A};
+\node[bar,fill=green!12,minimum width=40mm] (B) at (2.0,-0.8) {B: 成本5，收益8};
+\node[bar,fill=green!12,minimum width=40mm] (C) at (6.0,-0.8) {C: 成本5，收益8};
+\node[labelstyle] at (8.1,-0.8) {动态规划选择B+C};
+\node[anchor=west] at (0,-2) {贪心：预算消耗6，收益10；最优组合：预算消耗10，收益16。};
+\end{tikzpicture}

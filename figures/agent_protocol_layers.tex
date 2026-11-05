@@ -1,0 +1,14 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  abox/.style={draw=deepblue,rounded corners=2pt,fill=blue!6,minimum width=30mm,minimum height=11mm,align=center},
+  bbox/.style={draw=green!45!black,rounded corners=2pt,fill=green!8,minimum width=30mm,minimum height=11mm,align=center},
+  toolbox/.style={draw=accent,rounded corners=2pt,fill=orange!8,minimum width=28mm,minimum height=10mm,align=center},
+  arrow/.style={->,thick,deepblue}]
+\node[abox] (agenta) at (0,1.1) {Agent A\\任务委派者};
+\node[bbox] (agentb) at (5.2,1.1) {Agent B\\独立任务服务};
+\draw[arrow] (agenta.east)--node[above]{A2A：Agent Card / Task / Artifact}(agentb.west);
+\node[toolbox] (toa) at (0,-1.3) {工具服务甲\\受限资源};
+\node[toolbox] (tob) at (5.2,-1.3) {工具服务乙\\受限资源};
+\draw[arrow] (agenta.south)--node[left]{MCP工具/资源}(toa.north);
+\draw[arrow] (agentb.south)--node[right]{MCP工具/资源}(tob.north);
+\node[anchor=north west,align=left,text=deepblue] at (-1.5,-2.2) {跨Agent委派不自动复制身份或权限。Task完成不等于交付工件通过业务验收。};
+\end{tikzpicture}
