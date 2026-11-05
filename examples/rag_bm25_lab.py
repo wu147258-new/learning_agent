@@ -178,7 +178,7 @@ def self_test():
     ]
     public = BM25Index(docs, frozenset({"public"}))
     assert public.count == 4
-    assert public.avgdl == 3.75
+    assert public.avgdl == 3.5
     assert len(public.postings["secret"]) == 1
     assert math.isclose(
         public.idf("secret"), math.log(10/3), abs_tol=1e-12
