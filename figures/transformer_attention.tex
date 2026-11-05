@@ -1,0 +1,23 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  block/.style={draw=deepblue,rounded corners=2pt,align=center,minimum height=9mm,minimum width=20mm,fill=blue!5},
+  small/.style={draw=deepblue,rounded corners=1pt,align=center,minimum height=6mm,minimum width=13mm,fill=orange!9},
+  arrow/.style={->,thick,deepblue}]
+\node[block] (x) at (0,0) {输入表示\\$X\in\mathbb R^{T\times d}$};
+\node[small] (q) at (2.9,1.05) {$Q=XW_Q$};
+\node[small] (k) at (2.9,0) {$K=XW_K$};
+\node[small] (v) at (2.9,-1.05) {$V=XW_V$};
+\node[block] (score) at (5.7,0.6) {缩放得分\\$QK^{\mathsf T}/\sqrt{d_k}$};
+\node[block,fill=red!5] (mask) at (8.2,0.6) {因果掩码\\$M_{ij}=-\infty\ (j>i)$};
+\node[block,fill=green!8] (p) at (10.7,0.6) {按行Softmax\\$A_{ij}\ge0,\ \sum_j A_{ij}=1$};
+\node[block] (out) at (13.5,0) {注意力结果\\$O=AV$};
+\draw[arrow] (x.east) -- (q.west);
+\draw[arrow] (x.east) -- (k.west);
+\draw[arrow] (x.east) -- (v.west);
+\draw[arrow] (q.east) -- (score.west);
+\draw[arrow] (k.east) -- (score.west);
+\draw[arrow] (score.east) -- (mask.west);
+\draw[arrow] (mask.east) -- (p.west);
+\draw[arrow] (p.east) -- (out.west);
+\draw[arrow] (v.east) -| (out.south);
+\node[font=\scriptsize,align=left,text=deepblue] at (6.3,-1.15) {每头输出：$O\in\mathbb R^{T\times d_v}$\\预测第$t+1$个Token时不能读取未来位置};
+\end{tikzpicture}

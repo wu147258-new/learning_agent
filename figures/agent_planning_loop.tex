@@ -1,0 +1,22 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  nodebox/.style={draw=deepblue,rounded corners=2pt,minimum width=28mm,minimum height=10mm,align=center,fill=blue!5},
+  success/.style={draw=green!40!black,rounded corners=2pt,minimum width=30mm,minimum height=10mm,align=center,fill=green!9},
+  fail/.style={draw=accent,rounded corners=2pt,minimum width=34mm,minimum height=10mm,align=center,fill=red!5},
+  ar/.style={->,thick,deepblue}]
+\node[nodebox] (goal) at (0,0) {任务目标与约束\\$(s_0,G,B)$};
+\node[nodebox] (plan) at (3.2,0) {搜索可行动作\\A* / 动态规划};
+\node[nodebox] (auth) at (6.5,0) {执行前检查\\权限、预算与版本};
+\node[nodebox] (exe) at (9.8,0) {工具执行\\记录新观察};
+\node[nodebox] (check) at (13.1,0) {独立验证\\是否满足目标};
+\node[success] (done) at (13.1,-1.7) {通过：交付\\证据与结果};
+\node[fail] (recover) at (6.5,-1.7) {未通过：更新状态\\重新搜索或安全终止};
+\draw[ar] (goal.east) -- (plan.west);
+\draw[ar] (plan.east) -- (auth.west);
+\draw[ar] (auth.east) -- (exe.west);
+\draw[ar] (exe.east) -- (check.west);
+\draw[ar] (check.south) -- node[right]{通过} (done.north);
+\draw[ar,accent] (check.south west) |- node[pos=.25,above]{失败/状态变化} (recover.east);
+\draw[ar,accent] (recover.north) -- (auth.south);
+\draw[ar,accent] (recover.west) -| (plan.south);
+\node[anchor=north west,align=left,text=deepblue] at (0,-2.5) {外部工具可能失败，计划只是待执行候选；\\每一步都须以实际观察更新状态，而非信任模型自述。};
+\end{tikzpicture}

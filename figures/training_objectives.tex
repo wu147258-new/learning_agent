@@ -1,0 +1,22 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  stage/.style={draw=deepblue,rounded corners=2pt,minimum width=33mm,minimum height=10mm,align=center,fill=blue!4},
+  arr/.style={->,thick,deepblue}]
+\node[stage,fill=blue!10] (s1) at (0,2.4) {示例数据\\$(x,y)$};
+\node[stage] (s2) at (4.1,2.4) {条件似然\\$-\log\pi_\theta(y\mid x)$};
+\node[stage,fill=green!10] (s3) at (8.2,2.4) {SFT参数更新\\模仿已见答案};
+\draw[arr] (s1.east) -- (s2.west);
+\draw[arr] (s2.east) -- (s3.west);
+\node[stage,fill=purple!10] (d1) at (0,0.7) {偏好比较\\$(x,y^+,y^-)$};
+\node[stage] (d2) at (4.1,0.7) {参考模型对数比\\$z=\Delta\log\pi_\theta-\Delta\log\pi_{\rm ref}$};
+\node[stage,fill=green!10] (d3) at (8.2,0.7) {DPO参数更新\\$-\log\sigma(\beta z)$};
+\draw[arr] (d1.east) -- (d2.west);
+\draw[arr] (d2.east) -- (d3.west);
+\node[stage,fill=orange!12] (r1) at (0,-1.0) {生成轨迹\\$\tau=(S_t,A_t,\ldots)$};
+\node[stage] (r2) at (4.1,-1.0) {环境反馈与回报\\$G_t=\sum_{u\ge t}\gamma^{u-t}R_u$};
+\node[stage,fill=green!10] (r3) at (8.2,-1.0) {RL参数更新\\$\mathbb E[G_t\nabla\log\pi_\theta]$};
+\draw[arr] (r1.east) -- (r2.west);
+\draw[arr] (r2.east) -- (r3.west);
+\node[anchor=east,font=\sffamily\bfseries\small] at (-2.0,2.4) {SFT};
+\node[anchor=east,font=\sffamily\bfseries\small] at (-2.0,0.7) {DPO};
+\node[anchor=east,font=\sffamily\bfseries\small] at (-2.0,-1.0) {RL};
+\end{tikzpicture}
