@@ -50,3 +50,14 @@
 - [ ] 异步任务队列、租约栅栏令牌的跨进程演练，以及运行时崩溃后从真实SQLite文件恢复。
 - [ ] 数据集分层、独立评测、闭源模型对照、运行成本报告与失败案例库。
 - [ ] 保持至少1000页有效教学内容的最终版本目标，继续填补各章节深度。
+
+## 主流模型与Agent架构案例：穿插式扩编
+
+- [x] Transformer章内：MHA/GQA/MQA、Qwen3与gpt-oss公开注意力结构、DeepSeek-V3 MLA、MoE及Qwen3.5混合注意力、2026 DeepSeek公开Causal Encoder–Decoder案例（待CI验收）。
+- [x] SFT/DPO/RL章内：DeepSeek-R1公开GRPO路线、组内优势推导、GLM-5异步Agent RL与旧策略重要性权重（待CI验收）。
+- [x] Agent规划章内：ReAct、Plan-and-Execute、图状态机对照、状态/动作契约、可运行编排实验（待CI验收）。
+- [x] 运行时及多Agent章内：LangGraph检查点/审批、Agents SDK Handoff与Manager-as-tools，强调业务授权与幂等（待CI验收）。
+- [x] RAG与推理基础设施章内：长上下文与检索的角色区别、Dense/MoE模型权重与活跃参数的部署成本（待CI验收）。
+- [x] 新增两张TikZ可编辑插图与三个离线实验；修复先前RAG实验只在错误分支中执行的CI错误。
+- [ ] 最新PR通过模型、系统、PDF和插图CI验收后合并，记录实际页数。
+- [ ] 后续继续深入多模态模型底层、量化与分布式训练，不把未公开的闭源模型结构写成事实。
