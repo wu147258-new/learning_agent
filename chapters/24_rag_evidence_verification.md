@@ -194,12 +194,12 @@ $m=(\text{内容},\text{来源},\text{版本},\text{时间},\text{权限范围},
 
 记忆条目至少应通过三个门槛：
 
-$
+$$
 \operatorname{Usable}(m,u,t)=
 \operatorname{AuthorizedNow}(m,u)
 \land \operatorname{NotExpired}(m,t)
 \land \operatorname{VersionConsistent}(m).
-$
+$$
 
 对于会随时间变化的数据，还需重新检索权威来源。这里的NotExpired只表达是否达到业务约定的有效期限，并不能证明尚未过期的信息就一定真实。
 
