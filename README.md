@@ -85,3 +85,17 @@ python examples/agent_architecture_patterns.py
 ~~~
 
 对应正文为现有Transformer、SFT/DPO/RL、RAG、推理部署、Agent规划、运行时和多Agent章节；**没有新增独立的模型名录或架构单元**。模型案例以公开技术报告和模型卡为依据，代码模拟用于验证算子，不代表重现商用模型权重。
+
+
+## 端到端工程实验：推理、强化学习和代码修复
+
+以下示例与原有正文配套，可直接运行，不依赖Docker或模型API：
+
+~~~bash
+python examples/inference_quantization_lab.py
+python examples/speculative_decoding_lab.py
+python examples/verified_code_repair_agent.py
+python examples/multistep_rl_rollout_lab.py
+~~~
+
+其中多步强化学习需要PyTorch CPU版本。正文分别位于 [推理基础设施](chapters/17_19.md)、[SFT/DPO/RL](chapters/26_sft_dpo_rl_derivations.md) 与 [Agent规划](chapters/27_agent_planning_search_control.md)。图源可在figures目录修改并重新生成教材。
