@@ -47,6 +47,9 @@ jobs:
           python3 examples/rag_bm25_lab.py
           python3 examples/rag_evidence_lab.py
           python3 examples/agent_architecture_patterns.py
+          python3 examples/agent_protocol_contracts.py
+          python3 examples/context_budget_lab.py
+          python3 examples/agent_memory_provenance_lab.py
           if python3 examples/beginner_cli.py add 12 invalid >/dev/null 2>&1; then
             echo "Invalid CLI input must have nonzero exit status" >&2
             exit 1
