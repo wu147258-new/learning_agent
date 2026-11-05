@@ -30,6 +30,7 @@ jobs:
           python3 examples/foundation_algorithms.py
           python3 examples/foundation_math.py
           python3 examples/foundation_optimization.py
+          python3 examples/foundation_calculus.py
           python3 examples/foundation_http_sql.py
           python3 examples/beginner_tool_agent.py self-test
           python3 examples/foundation_testing.py
