@@ -115,8 +115,10 @@ def check_derivatives():
     assert math.isclose(scalar_loss(w, b, x, y), 4.5)
     moderate = single_gradient_step(w, b, x, y, learning_rate=0.1)
     aggressive = single_gradient_step(w, b, x, y, learning_rate=1.0)
-    assert moderate == (1.6, 0.3)
-    assert aggressive == (7.0, 3.0)
+    assert all(math.isclose(a, b, abs_tol=1e-12)
+               for a, b in zip(moderate, (1.6, 0.3)))
+    assert all(math.isclose(a, b, abs_tol=1e-12)
+               for a, b in zip(aggressive, (7.0, 3.0)))
     assert math.isclose(scalar_loss(*moderate, x, y), 1.125)
     assert math.isclose(scalar_loss(*aggressive, x, y), 72.0)
 
@@ -178,7 +180,7 @@ def check_nonconvex_example():
         return (x*x - 1)**2
     for x in (-1.0, 1.0):
         assert f(x) == 0
-        assert central_difference(f, x) < 1e-7
+        assert abs(central_difference(f, x)) < 1e-7
     assert math.isclose(central_difference(f, 0.0), 0, abs_tol=1e-10)
     assert f(0.0) > f(0.5)
 
