@@ -610,37 +610,37 @@ $H\in\{0,1\},\qquad P(H=0)=P(H=1)=1/2.$
 
 设首步策略为：
 
-$
+$$
 \pi_\theta(I)=p_I,\quad
 \pi_\theta(G_0)=p_0,\quad
 \pi_\theta(G_1)=p_1,\quad
 p_I+p_0+p_1=1.
-$
+$$
 
 在检查后，如果隐藏原因是 $h$，令第二步选择正确答案的概率为：
 
-$
+$$
 c_h=P_\theta(A_1=h\mid H=h,\ A_0=I).
-$
+$$
 
 那么期望总收益：
 
-$
+$$
 \boxed{
 J(\theta)=
 p_I\left[-0.1+\tfrac12c_0+\tfrac12c_1\right]
 +\tfrac12p_0+\tfrac12p_1.
 }
-$
+$$
 
 这是从三种首步行动分别取条件期望，再按首步行动概率求和得到的。
 
 若首步三种行动等概率，检查后的两个选择也等概率，则：
 
-$
+$$
 J=\tfrac13(0.4)+\tfrac13(0.5)+\tfrac13(0.5)
 =\tfrac7{15}\approx0.4667.
-$
+$$
 
 若Agent学会在首步总是检查，并在第二步总是猜对，则期望收益趋近于 $1-0.1=0.9$。
 
@@ -654,22 +654,22 @@ $\tau=(H,A_0,A_1).$
 
 其中未执行Inspect时不包含 $A_1$。其联合概率为：
 
-$
+$$
 P_\theta(\tau)
 =P(H)\pi_\theta(A_0\mid s_0)
 \begin{cases}
 \pi_\theta(A_1\mid H),& A_0=I,\\
 1,& A_0\ne I.
 \end{cases}
-$
+$$
 
 因此，对数概率的策略相关部分：
 
-$
+$$
 \log\pi_\theta(\tau)
 =\log\pi_\theta(A_0\mid s_0)
 +\mathbf1[A_0=I]\log\pi_\theta(A_1\mid H).
-$
+$$
 
 这说明多步Agent并不是只有一次Softmax：每一步实际选择的行动都贡献策略对数概率。为了训练，必须记录实际行动、当时的策略版本和外部观测，而不能仅保留最终回答。
 
@@ -677,29 +677,29 @@ $
 
 设轨迹总奖励为 $R(\tau)$，环境随机变量的采样分布不依赖模型参数。则：
 
-$
+$$
 J(\theta)=\sum_\tau P_\theta(\tau)R(\tau).
-$
+$$
 
 使用对数导数恒等式：
 
-$
+$$
 \nabla_\theta J
 =\sum_\tau
 P_\theta(\tau)R(\tau)
 \nabla_\theta\log\pi_\theta(\tau).
-$
+$$
 
 可以加上不依赖于当次行动的基线 $b$：
 
-$
+$$
 \boxed{
 \nabla_\theta J
 =
 \mathbb E_{\tau\sim P_\theta}
 [(R(\tau)-b)\nabla_\theta\log\pi_\theta(\tau)].
 }
-$
+$$
 
 该表达式解释REINFORCE。若基线依赖当前状态而不依赖当前行动，可逐时间步构造状态基线；但不能随意让基线依赖采样行动而仍假定梯度无偏。
 
@@ -728,24 +728,24 @@ $
 
 假设轨迹是由旧策略 $\mu$ 生成，而当前训练策略是 $\pi_\theta$。只要旧策略对目标策略支持的结果有正概率：
 
-$
+$$
 \mathbb E_{\tau\sim P_\theta}[R(\tau)]
 =
 \mathbb E_{\tau\sim P_\mu}
 \left[
 \frac{P_\theta(\tau)}{P_\mu(\tau)}R(\tau)
 \right].
-$
+$$
 
 在环境转移分布不依赖 $\theta$ 且行为与目标使用相同环境机制时，轨迹比率可以化简为各实际行动概率比率的乘积：
 
-$
+$$
 \frac{P_\theta(\tau)}{P_\mu(\tau)}
 =
 \prod_{t\in\tau}
 \frac{\pi_\theta(A_t\mid S_t)}
 {\mu(A_t\mid S_t)}.
-$
+$$
 
 这是多步离策略校正的基础。但轨迹越长，多个比率相乘可能造成很大的数值波动，导致采样方差剧增。因此真实长轨迹训练往往需要比率截断、逐步优势、数据新鲜度限制和其他稳定性措施。
 
@@ -757,7 +757,7 @@ $\rho_\tau(\theta)=P_\theta(\tau)/P_{\rm old}(\tau).$
 
 给定一个固定优势值 $A_\tau$，可定义教学用剪切代理目标：
 
-$
+$$
 L_{\rm toy}(\theta)
 =
 \sum_\tau P_{\rm old}(\tau)
@@ -765,7 +765,7 @@ L_{\rm toy}(\theta)
 \rho_\tau A_\tau,
 \operatorname{clip}(\rho_\tau,1-\epsilon,1+\epsilon)A_\tau
 \right).
-$
+$$
 
 这里的计算是**轨迹级**而不是标准PPO常见的逐时间步剪切目标。它用来解释比率与剪切的关系，不能误写成完整的RLHF/PPO算法复现。
 
