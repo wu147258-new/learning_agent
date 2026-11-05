@@ -1,0 +1,19 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ inputblock/.style={draw=deepblue,rounded corners=2pt,fill=blue!6,minimum width=24mm,minimum height=8mm,align=center},
+ expert/.style={draw=deepblue,rounded corners=2pt,fill=softgray,minimum width=21mm,minimum height=8mm,align=center},
+ chosen/.style={draw=green!50!black,rounded corners=2pt,fill=green!8,minimum width=21mm,minimum height=8mm,align=center},
+ ar/.style={->,thick,deepblue}]
+\node[inputblock] (x) at (0,0) {Token表示\\$x$};
+\node[inputblock] (r) at (3.1,0) {Router\\$z=Wx$};
+\node[chosen] (e1) at (6.2,1.1) {专家1\\$f_1(x)$};
+\node[expert] (e2) at (6.2,0) {专家2\\未选中};
+\node[chosen] (e3) at (6.2,-1.1) {专家3\\$f_3(x)$};
+\node[inputblock] (y) at (9.6,0) {稀疏加权输出\\$\alpha_1f_1+\alpha_3f_3$};
+\draw[ar] (x.east)--(r.west);
+\draw[ar] (r.east)--node[above,sloped]{Top-k}(e1.west);
+\draw[->,dashed,gray] (r.east)--(e2.west);
+\draw[ar] (r.east)--(e3.west);
+\draw[ar] (e1.east)--(y.north west);
+\draw[ar] (e3.east)--(y.south west);
+\node[anchor=north west,align=left,text=deepblue] at (-0.5,-2.25) {示意：4类专家中仅画出3个，当前Token选择专家1与3；真实架构的路由和共享专家细节依模型而异。};
+\end{tikzpicture}

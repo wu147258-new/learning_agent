@@ -210,6 +210,87 @@ $$\operatorname{FFN}(x)=W_2\phi(W_1x+b_1)+b_2.$$
 
 它先映射到更宽的隐藏空间、施加非线性，再映射回原维度。中间宽度可以取 $4d$，但这不是数学上的硬性要求；许多模型采用门控前馈网络。
 
+## 从Dense FFN到MoE：Qwen3、DeepSeek-V3与gpt-oss的专家路由
+
+### Dense模型与稀疏激活模型的区别
+
+传统Dense Transformer的前馈网络对每个Token使用同一组前馈参数：
+
+$y=\operatorname{FFN}(x).$
+
+MoE（Mixture of Experts）把前馈部分替换为 $E$ 个专家网络 $f_1,\ldots,f_E$ 和一个路由器。对Token表示 $x$，路由器计算专家得分 $z=Wx$，选择得分最高的 $k$ 个专家：
+
+$$
+\mathcal K(x)=\operatorname{TopK}(z,k).
+$$
+
+将被选择专家的得分重新做Softmax归一化：
+
+$$
+\alpha_i(x)=
+\frac{e^{z_i}}{\sum_{j\in\mathcal K(x)}e^{z_j}},
+\quad i\in\mathcal K(x).
+$$
+
+输出：
+
+$$
+\boxed{y=\sum_{i\in\mathcal K(x)}\alpha_i(x)f_i(x).}
+$$
+
+并非每个模型都使用完全相同的路由归一化，也可能包含共享专家、路由偏置、专家容量限制及负载均衡机制；以上是最基础的Top-k MoE教学定义。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.92\linewidth}{!}{\input{figures/model_moe_routing.tex}}
+\caption{稀疏MoE的Top-k专家选择和归一化加权；只执行被选择专家，不代表其余专家权重不存在}
+\end{figure}
+
+### “总参数”与“单Token激活参数”不同
+
+假设专家数 $E=8$，每个专家有 $P_e=10^6$ 个参数，路由时选择 $k=2$ 个专家。仅考虑专家部分：
+
+$P_{\rm experts,total}=8\times10^6,$
+
+$P_{\rm experts,active/token}\approx2\times10^6.$
+
+这样模型可以保存更多不同的专家参数，而单个Token的前馈计算只调用部分专家。
+
+**不能将单Token激活参数简单当成推理显存总需求。** 推理服务通常还需存储或加载模型中的全部专家权重，除非另有换入换出或分布式专家部署机制。
+
+### 公开模型实例与结构差异
+
+| 模型实例 | 公开结构事实 | 教学重点 |
+|---|---|---|
+| Meta Llama 3 405B | Dense Transformer | 所有Token运行同一组Dense层参数 |
+| Qwen3 MoE系列（技术报告） | 披露细粒度专家与稀疏路由；所述MoE设计采用128个专家、每Token激活8个 | Top-k路由与专家负载 |
+| DeepSeek-V3 | 671B总参数、每Token约37B激活；MLA与DeepSeekMoE | 大规模总参数与推理计算之间的差异 |
+| gpt-oss-120b | 128个专家、每Token激活4个 | 选择路由与活跃参数数量 |
+| gpt-oss-20b | 32个专家、每Token激活4个 | 同系列不同规模下的专家组织 |
+
+这里的配置来自相应公开技术报告或模型卡，并不表示这些模型彼此采用同一套具体工程实现。上述条目也不构成对未公开闭源模型结构的猜测。
+
+### 负载不均会造成什么问题
+
+假设8个专家中的大部分Token都选择同一专家，而其余专家很少被调用。在专家并行部署中，热门专家可能成为计算与通信瓶颈，其他GPU空闲。
+
+可以用一批Token分配到每个专家的数量 $n_e$ 观察负载：
+
+$$
+p_e=\frac{n_e}{\sum_{j=1}^{E}n_j},
+\quad
+H=-\sum_e p_e\log p_e.
+$$
+
+熵 $H$ 可以描述分配是否集中，但并不自动等于训练中实际使用的负载均衡损失。不同模型可能采用辅助负载损失、无辅助损失的动态偏置等具体策略。DeepSeek-V3报告披露了不额外引入辅助损失的负载均衡方法；这些细节需要和一般MoE理论明确区分。
+
+### 为什么MoE不是无条件更好
+
+MoE带来参数容量与活跃计算的解耦，但训练和推理可能需要专家间路由通信、负载均衡、专家参数分布与动态批处理。小规模任务未必能从稀疏路由获益。
+
+训练时Top-k选择本身还是离散的；常见实现通过对已选择专家的连续权重进行反向传播，配合特定路由训练机制。不能因为普通前馈网络可微，就认为离散专家选择在所有边界上都可微。
+
+
 ## 从负对数似然推导梯度
 
 ### 交叉熵从哪里来
@@ -241,6 +322,76 @@ $$
 
 这两项严格等价，但右式的指数输入均不大于0，数值更稳定。训练程序应使用实现了数值稳定性的交叉熵算子，而不是自行串联未经保护的exp、sum与log。
 
+## 从多头注意力走向GQA：Llama、Qwen与gpt-oss的公开设计
+
+### 同样的查询头数，为什么不必配置同样多的KV头
+
+标准多头注意力（MHA）对每个查询头分别计算Key与Value。若查询头数为 $H_q$，每头维度为 $d_h$，通常有 $H_{\rm kv}=H_q$。对长文本解码，历史K/V都需缓存，成为显存瓶颈。
+
+多查询注意力（MQA）让所有查询头共享一组K/V；分组查询注意力（GQA）取折中方案，让 $g=H_q/H_{\rm kv}$ 个查询头共享一组K/V，通常要求 $H_q$ 能被 $H_{\rm kv}$ 整除。
+
+对于查询头 $h$，可令它使用KV组：
+
+$$
+\operatorname{group}(h)=\left\lfloor h/g\right\rfloor.
+$$
+
+单头输出仍为缩放点积注意力，只是多个查询头复用同一组Key和Value：
+
+$$
+O_h=\operatorname{softmax}
+\left(\frac{Q_hK_{\operatorname{group}(h)}^{\mathsf T}}{\sqrt{d_h}}+M\right)
+V_{\operatorname{group}(h)}.
+$$
+
+**减少KV头不等于减少查询头。** 它主要降低KV投影与缓存规模，同时可能影响模型表达与质量，需要在特定模型上评测。
+
+### 用缓存公式手算GQA的收益
+
+忽略额外元数据时，KV缓存：
+
+$$
+M_{\mathrm{KV}}=2BLTH_{\rm kv}d_hb.
+$$
+
+假设批量 $B=1$，层数 $L=32$，缓存长度 $T=8192$，查询头数 $H_q=32$，每头维度 $d_h=128$，KV元素占2字节。
+
+MHA的KV头数为32，缓存约为 $2\times1\times32\times8192\times32\times128\times2=4$ GiB。
+
+若GQA使用8个KV头，则缓存约为1 GiB；在这个简化模型里节约75%。这不代表整个模型显存下降75%，因为权重、临时激活和运行时分配并未计入。
+
+### 公开模型实例：Llama 3、Qwen3与gpt-oss
+
+Meta公开的Llama 3技术报告将大规模模型归为Dense Transformer设计。Qwen3技术报告说明其Dense模型沿用GQA、RoPE、SwiGLU和Pre-Norm RMSNorm，并加入QK-Norm；Qwen3同时提供MoE变体。
+
+OpenAI公开权重的gpt-oss模型卡给出具体的可复核配置：注意力层有64个Query头、8个KV头，采用GQA；同时使用局部窗口与全局稠密注意力交替出现的模式。这些都是**特定已公开权重模型**的设计，不能据此外推任何未披露的闭源GPT模型内部结构。
+
+| 结构 | Query头 | KV头 | 缓存及权衡 |
+|---|---:|---:|---|
+| MHA示意 | 32 | 32 | KV缓存最多，表达最灵活 |
+| GQA示意 | 32 | 8 | KV缓存约为MHA的四分之一 |
+| MQA示意 | 32 | 1 | KV缓存更小，但共享程度更高 |
+| gpt-oss公开配置 | 64 | 8 | 以官方公开模型卡为准 |
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.93\linewidth}{!}{\input{figures/model_attention_patterns.tex}}
+\caption{MHA、GQA与低秩KV表示的结构比较；MLA示意仅用于理解压缩思想，不等同于完整DeepSeek-V3实现}
+\end{figure}
+
+### QK-Norm为什么不能与LayerNorm混为一谈
+
+QK-Norm在注意力打分前对查询和键施加适当归一化；Pre-Norm通常指Transformer块在注意力/前馈模块前对残差流进行归一化。二者处于不同位置，不应将模型结构中的所有“Norm”直接视为同一操作。
+
+对于加入QK-Norm的版本，推导注意力分数时需将经过归一化的 $\widetilde Q,\widetilde K$ 代入：
+
+$$
+S=\widetilde Q\widetilde K^{\mathsf T}/\sqrt{d_h}+M.
+$$
+
+实际归一化的具体定义、是否带可学习权重和作用维度须以模型实现为准。
+
+
 ## KV缓存为什么能减少重复计算
 
 ### 不使用缓存时会重复求什么
@@ -267,6 +418,112 @@ $$\boxed{M_{\rm KV}\approx 2BLTH_{\rm kv}d_hb.}$$
 ### 缓存必须匹配哪些条件
 
 KV缓存必须关联模型权重版本、对应层、前缀内容、位置编码和会话状态。不能把其他任务或模型权重的缓存无条件复用。
+
+## 从GQA到DeepSeek-V3的MLA：压缩KV表示而不是只减少头数
+
+### 为什么低秩投影可能节省缓存
+
+GQA通过共享KV头降低缓存维度。另一条路线是先把历史Token的表示压缩成较小的潜在向量，再为注意力计算恢复需要的投影。
+
+假设原始维度为 $d$，潜在缓存维度为 $r$，且 $r\ll d$：
+
+$$
+c_t=W_{\mathrm{down}}x_t\in\mathbb R^r,
+\qquad
+\widetilde k_t=W_{\mathrm{up},k}c_t,\quad
+\widetilde v_t=W_{\mathrm{up},v}c_t.
+$$
+
+如果只缓存 $c_t$，每个历史位置所需存储可以从若干完整KV向量降到 $r$ 个元素；但是计算过程中是否需要额外的解码、矩阵吸收和位置编码处理，要取决于真实实现。
+
+DeepSeek-V3技术报告披露使用**Multi-head Latent Attention（MLA）**以及DeepSeekMoE。其MLA包含对位置编码与内容表示的专门处理，不能把上述三行通用低秩分解误称为DeepSeek-V3源码复现。本节实验只验证低秩缓存概念和内存计数。
+
+### 低秩不代表无损
+
+若 $W_{\mathrm{down}}\in\mathbb R^{r\times d}$，且 $r<d$，线性映射存在非零零空间，通常无法从潜在向量精确恢复任意 $d$ 维输入。
+
+因此“缓存更小”和“信息完全不丢失”不能同时由低秩维度约束直接推出。模型会在训练中学习有利于任务的投影，但是否保持质量必须评测，不能只看缓存大小。
+
+### 可运行的数值实验
+
+执行：
+
+~~~bash
+python examples/model_architecture_patterns.py
+~~~
+
+程序会验证GQA共享KV头的张量形状与结果等价性、稀疏专家路由，以及低秩KV表示相对于完整KV的理论元素数量。它不用下载Qwen、Llama或DeepSeek的权重，所以验证的是**架构算子原理**，并不宣称复现大型模型。
+
+### 公开技术资料
+
+- Meta, *The Llama 3 Herd of Models*：https://arxiv.org/abs/2407.21783
+- Qwen Team, *Qwen3 Technical Report*：https://arxiv.org/abs/2505.09388
+- DeepSeek, *DeepSeek-V3 Technical Report*：https://arxiv.org/abs/2412.19437
+- OpenAI, *gpt-oss Model Card*：https://deploymentsafety.openai.com/gpt-oss/architecture
+
+
+## 2026年的混合架构：为什么不再每层都做完整Softmax注意力
+
+### 长上下文的计算瓶颈在哪里
+
+标准因果Softmax注意力处理长度为 $T$ 的序列时，需要考虑约 $T(T+1)/2$ 个历史位置关系。无特殊优化时，单层注意力成对计算量随 $T^2$ 增长。
+
+一种思路是在部分层使用可递推的状态摘要，而在其他层保留完整或局部Softmax注意力。这类设计常称为**混合注意力（hybrid attention）**，它与MoE是否采用稀疏专家是不同的设计维度。
+
+### 从前缀求和推导线性注意力的状态
+
+为了理解固定大小状态的来源，先考虑一个**教学用的核化注意力简化式**。令 $\phi(q),\phi(k)\in\mathbb R^r$ 为非负特征映射，定义：
+
+$$
+S_t=\sum_{j=1}^{t}\phi(k_j)v_j^\mathsf T,\qquad
+z_t=\sum_{j=1}^{t}\phi(k_j).
+$$
+
+它们可以逐位置更新：
+
+$$
+S_t=S_{t-1}+\phi(k_t)v_t^\mathsf T,\qquad
+z_t=z_{t-1}+\phi(k_t).
+$$
+
+当前查询的输出：
+
+$$
+\boxed{
+o_t=\frac{\phi(q_t)^\mathsf TS_t}
+{\phi(q_t)^\mathsf Tz_t}.
+}
+$$
+
+只要分母为正，这就等于对此前所有键和值按 $\phi(q_t)^\mathsf T\phi(k_j)$ 权重加权归一化。这类状态只需要保存 $S_t$ 与 $z_t$，其维度不随历史Token数线性增长。
+
+但它一般不等价于标准指数Softmax注意力；这里也**不是Qwen3.5的Gated DeltaNet完整实现**。真正的门控与状态更新机制需要阅读对应架构源码和技术文档。
+
+### Qwen3.5的公开实现体现了什么取舍
+
+Hugging Face Transformers的Qwen3.5模型文档披露：其文本骨干采用混合注意力，按**3层Gated DeltaNet线性注意力加1层全注意力**的比例组织；系列还包含密集与MoE模型，并使用多模态位置表达。
+
+这提供一个实际教材案例：不是所有层都用 $T\times T$ 的标准注意力矩阵，部分层可利用状态式处理长序列，同时保留用于更精确读取的全注意力层。
+
+**不能从“线性注意力层更多”直接推出某模型在任何序列长度下都更快**：吞吐还受GPU算子实现、矩阵宽度、并行、缓存与请求批量影响。
+
+### DeepSeek-V4.1-Flash：不同于纯Decoder的组织方式
+
+DeepSeek官方在2026年9月公开的V4.1-Flash介绍中称其采用**Causal Encoder–Decoder**结构，使用MoE，并披露输入与输出阶段不同的活跃参数量（分别为8B和16B）。它与前文纯Decoder Transformer的教学模型并不完全同构。
+
+该案例说明，即使都称为生成式语言模型，也可能对输入编码与输出生成采用不同计算路径。不能将某一个典型Decoder结构当作“全部主流模型”的唯一内部结构。
+
+上述参数和资源优势属于厂商公开技术声明，不能未经独立测试直接解释为在所有硬件与工作负载上的实际吞吐保证。
+
+### 练习
+
+1. 标准全注意力的 $T\times T$ 分数矩阵，长度从1024增至4096时，元素数量增加多少倍？
+2. 若状态矩阵 $S_t\in\mathbb R^{r\times d_v}$、向量 $z_t\in\mathbb R^r$，忽略额外开销，固定状态要保存多少个元素？
+3. 为什么上述状态式注意力一般不能直接替代标准Softmax并保证相同输出？
+4. 对比纯Decoder、混合注意力Decoder和Causal Encoder–Decoder，分别列出推理与KV缓存需要重新考虑的环节。
+
+参考：Qwen3.5模型文档 https://huggingface.co/docs/transformers/model_doc/qwen3_5 ；DeepSeek V4.1-Flash公告 https://deepseek.com/en/news/deepseek-v4-1-flash/ 。
+
 
 ## RoPE如何将位置差放入向量内积
 

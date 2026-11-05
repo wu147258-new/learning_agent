@@ -355,6 +355,110 @@ $$
 
 “模型想到了操作”与“系统允许执行操作”是完全不同的事件。模型建议器和工具执行器应分开设计，尤其不能让模型直接修改自己的授权列表或检查器。
 
+## 把搜索算法落到ReAct和Plan-and-Execute两种Agent架构
+
+### ReAct为什么在行动之间插入观察
+
+前面把规划定义成状态 $s_t$、合法动作 $a_t$、环境反馈 $o_{t+1}$ 的交替过程。ReAct（Reasoning and Acting）是这种交替模式在语言模型工具调用中的典型实现：
+
+~~~text
+输入目标与已有观察
+    ↓
+提出当前行动（例如检索某文件）
+    ↓
+执行器检查权限、参数和预算
+    ↓
+工具真实执行并返回Observation
+    ↓
+根据新观察决定下一行动或结束
+~~~
+
+ReAct强调基于真实观察继续推进行动，而不是一次性臆造全部工具结果。论文提出推理与行动交织的思想，不意味着部署时应当向最终用户展示所有内部推理文本，也不意味着模型的推理文本能够代替权限检查。
+
+在代码审计中，第一次读取auth.py可能发现调用发生在另一文件。下一步检索目标随观察而变化；如果提前生成一百条固定搜索路径，可能浪费大量工具预算。
+
+### Plan-and-Execute为什么适合可拆分任务
+
+如果任务需要先修复再测试，有些依赖在执行前就已经明确。此时可先产生子任务计划：
+
+$P=(a_1,a_2,\ldots,a_n).$
+
+执行器逐步检验每步的前置条件。若某步结果与预测不同，规划器修改剩余计划，而不是继续执行过期动作。
+
+~~~text
+Planner → 子任务队列 → Executor → Verifier
+                 ↑                   │
+                 └── 更新状态/重规划 ─┘
+~~~
+
+ReAct偏向一次产生一步行动，Plan-and-Execute更强调跨多步的任务结构，但二者不互斥：上层使用任务DAG，下层各子任务仍然可以通过观察—行动循环执行。
+
+### 图状态机适合哪里
+
+如果流程中有确定的分支和审批：
+
+~~~text
+接收任务 → 读取代码 → 产生补丁 → 人工审查
+                               ↙       ↘
+                             通过      拒绝
+                              ↓         ↓
+                           回归测试   终止/修改计划
+~~~
+
+可以把节点映射为输入输出契约明确的函数，把边映射为状态转换条件。LangGraph等框架提供图状态、检查点和中断恢复，但它们不会让未经授权的工具自动变安全。
+
+### 三种结构怎样选择
+
+| 任务特点 | 倾向的编排 | 主要风险 |
+|---|---|---|
+| 下一步取决于当前检索结果 | ReAct式观察—行动循环 | 无边界循环与模型误判 |
+| 已知多个阶段的强依赖 | Plan-and-Execute / DAG | 计划过期和错误依赖 |
+| 审批、恢复与分支较多 | 图状态机 | 节点重执行和状态版本 |
+| 子任务复杂且需要审批 | DAG + 子任务ReAct + 持久状态图 | 跨层状态和权限不一致 |
+
+框架名称不是性能证明。应该比较任务成功率、调用次数、权限、预算和真实恢复效果。
+
+### 三种架构共享的执行接口
+
+~~~python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Action:
+    name: str
+    arguments: dict
+    expected_version: int
+
+@dataclass(frozen=True)
+class Observation:
+    ok: bool
+    next_state_version: int
+    evidence_id: str | None
+~~~
+
+规划器提出Action，执行器通过独立授权和输入校验后才返回真实Observation。模型可以生成候选动作，但不能根据自己输出的文字修改权威任务状态。
+
+运行：
+
+~~~bash
+python examples/agent_architecture_patterns.py
+~~~
+
+实验比较相同合成任务中的ReAct逐步观察、固定DAG执行和人工审批的图状态机。会显式记录工具调用和拒绝执行，不依赖在线模型API。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/agent_orchestration_patterns.tex}}
+\caption{同一组工具能力下不同Agent编排模式的控制流差别}
+\end{figure}
+
+### 阅读材料
+
+- Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*：https://arxiv.org/abs/2210.03629
+- LangGraph，中断与检查点文档：https://docs.langchain.com/oss/python/langgraph/interrupts
+- OpenAI Agents SDK，运行与编排：https://developers.openai.com/api/docs/guides/agents/running-agents
+
+
 ## 离线代码实验：从A*到故障恢复
 
 ### 可运行的规划器
