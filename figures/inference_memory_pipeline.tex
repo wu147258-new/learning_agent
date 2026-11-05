@@ -1,0 +1,20 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ stage/.style={draw=deepblue,fill=blue!5,rounded corners=2pt,minimum width=28mm,minimum height=11mm,align=center},
+ unit/.style={draw=green!45!black,fill=green!8,rounded corners=2pt,minimum width=29mm,minimum height=11mm,align=center},
+ cache/.style={draw=accent,fill=orange!7,rounded corners=2pt,minimum width=32mm,minimum height=11mm,align=center},
+ link/.style={->,thick,deepblue}]
+\node[stage] (text) at (0,0.8) {提示词\\$T_{\rm in}$ Token};
+\node[stage] (prefill) at (3.7,0.8) {预填充\\并行处理历史};
+\node[unit] (decode) at (7.4,0.8) {逐Token解码\\动态批处理};
+\node[stage] (output) at (11.1,0.8) {生成结果\\$T_{\rm out}$ Token};
+\draw[link] (text.east)--(prefill.west);
+\draw[link] (prefill.east)--(decode.west);
+\draw[link] (decode.east)--(output.west);
+\node[cache] (weights) at (4.0,-1.5) {模型权重\\低比特量化/分组比例};
+\node[cache] (kv) at (8.0,-1.5) {历史KV或状态缓存\\GQA/分页/前缀共享};
+\draw[link] (weights.north)--(prefill.south);
+\draw[link] (weights.north east)--(decode.south west);
+\draw[link] (kv.north west)--(prefill.south east);
+\draw[link] (kv.north)--(decode.south);
+\node[anchor=north west,align=left,text=deepblue] at (-1.6,-2.75) {量化主要影响权重存储/算子；KV缓存与分页影响会话容量；批处理影响调度。它们是不同的优化维度。};
+\end{tikzpicture}
