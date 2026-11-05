@@ -1,0 +1,21 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ block/.style={draw=deepblue,rounded corners=2pt,fill=blue!5,minimum width=26mm,minimum height=10mm,align=center},
+ vision/.style={draw=green!45!black,rounded corners=2pt,fill=green!8,minimum width=27mm,minimum height=10mm,align=center},
+ inject/.style={draw=accent,rounded corners=2pt,fill=orange!9,minimum width=28mm,minimum height=10mm,align=center},
+ arrow/.style={->,thick,deepblue}]
+\node[block] (img) at (0,0.8) {输入图像\\$C\times H\times W$};
+\node[vision] (patch) at (3.6,0.8) {按$P\times P$分块\\视觉Patch};
+\node[vision] (encoder) at (7.2,0.8) {视觉编码器\\多层特征};
+\node[inject] (merge) at (10.8,0.8) {$2\times2$ Merger\\视觉Token};
+\draw[arrow] (img.east)--(patch.west);
+\draw[arrow] (patch.east)--(encoder.west);
+\draw[arrow] (encoder.east)--(merge.west);
+\node[block] (text) at (0,-1.35) {文本Token\\可含时间标记};
+\node[block] (llm) at (6.2,-1.35) {语言模型隐藏状态\\序列建模与生成};
+\node[inject] (features) at (10.8,-1.35) {多层视觉特征\\按层注入};
+\draw[arrow] (text.east)--(llm.west);
+\draw[arrow] (encoder.south) |- (features.north west);
+\draw[arrow] (merge.south)--(features.north);
+\draw[arrow] (features.west)--(llm.east);
+\node[anchor=north west,align=left,text=deepblue] at (-1.6,-2.65) {图示展示视觉编码、合并和多层注入的关系；不代表Qwen3-VL源码节点或每层张量布局的完全复刻。};
+\end{tikzpicture}
