@@ -75,3 +75,13 @@ python3 examples/agent_eval_security_lab.py
 ~~~
 
 新增深度章节：[Agent运行时与故障恢复](chapters/28_agent_runtime_recovery.md)、[多Agent协作与一致性](chapters/29_multiagent_coordination.md)、[Agent评测与安全验收](chapters/30_agent_eval_security.md)。章节配套的可编辑矢量图位于 figures/，随构建编入PDF。
+
+原有章节穿插的模型结构与Agent架构实验：
+
+~~~bash
+python examples/model_architecture_patterns.py
+python examples/model_training_architectures.py
+python examples/agent_architecture_patterns.py
+~~~
+
+对应正文为现有Transformer、SFT/DPO/RL、RAG、推理部署、Agent规划、运行时和多Agent章节；**没有新增独立的模型名录或架构单元**。模型案例以公开技术报告和模型卡为依据，代码模拟用于验证算子，不代表重现商用模型权重。
