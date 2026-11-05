@@ -385,6 +385,60 @@ $$
 
 PPO比率的分母应对应**实际采样该数据时的旧分布**。若每次训练迭代都随意把分母改成当前新分布，比例会失去应有意义。多轮小批量更新应明确数据收集时点与旧模型快照。
 
+## 从公式实现SFT和DPO损失
+
+### 对答案Token求对数概率
+
+对于相同长度的合成训练序列，可以在模型输入中保留提示词，但只让答案Token参与监督：
+
+~~~python
+import torch
+from torch.nn import functional as F
+
+def answer_logprob(model, seq, prompt_len):
+    logits = model(seq[:, :-1])
+    labels = seq[:, 1:]
+    token_logp = F.log_softmax(
+        logits, dim=-1
+    ).gather(
+        -1, labels.unsqueeze(-1)
+    ).squeeze(-1)
+    return token_logp[:, prompt_len-1:].sum(-1)
+~~~
+
+若完整序列是BOS、提示词、答案、EOS，第一个答案Token出现在原序列的索引prompt_len处。模型输入中索引prompt_len-1的位置负责预测它，所以切片必须从prompt_len-1开始。
+
+注意返回的是**每个完整答案的对数概率之和**，不是逐Token平均值。DPO通常对响应序列的对数概率作比较；改变聚合方式会改变偏好目标对长度的处理。
+
+### 从答案概率组装DPO损失
+
+~~~python
+def dpo_loss(
+    model, chosen, rejected,
+    ref_chosen_logp, ref_rejected_logp,
+    prompt_len, beta
+):
+    chosen_logp = answer_logprob(
+        model, chosen, prompt_len
+    )
+    rejected_logp = answer_logprob(
+        model, rejected, prompt_len
+    )
+    margin = (
+        chosen_logp - rejected_logp
+        - ref_chosen_logp.detach()
+        + ref_rejected_logp.detach()
+    )
+    return -F.logsigmoid(beta * margin).mean()
+~~~
+
+这里要求首选和拒绝答案对应相同提示词，并且参考模型已冻结。训练模型只需要产生新的条件概率，参考模型不能随着当前优化步骤一起更新。对不同长度的响应要额外处理Padding、EOS及截断，不能直接套用固定长度示例。
+
+### 从失败输入检查实现
+
+若错误地将prompt_len改小1，则会把一个提示词Token纳入答案对数概率；虽然代码依然能反向传播，但优化目标已经变化。完整实验以显式的逐Token求和断言检查这一索引关系，保证“程序能运行”与“公式实现正确”是两项分别检查的要求。
+
+
 ## 工程中的训练数据与安全验证
 
 ### 完整的训练记录
