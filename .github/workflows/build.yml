@@ -97,6 +97,7 @@ jobs:
           python examples/model_architecture_patterns.py
           python examples/model_training_architectures.py
           python examples/multistep_rl_rollout_lab.py
+          python examples/multimodal_patch_fusion_lab.py
 
   standalone-agent-smoke:
     runs-on: ubuntu-latest
