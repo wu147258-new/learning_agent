@@ -485,9 +485,9 @@ def add(a, b):
 
 设任务为：
 
-$
+$$
 \mathcal T=(F,\ H_0,\ \mathcal A,\ G,\ B).
-$
+$$
 
 其中 $F$ 是获授权目标文件；$H_0$ 是观察时文件内容的SHA-256指纹；$\mathcal A$ 是允许执行的操作集合；$G$ 是必须通过的验收条件；$B$ 是预算。
 
@@ -506,9 +506,9 @@ $
 
 Agent观察文件后，得到原始文本 $x$ 和指纹：
 
-$
+$$
 h_0=\operatorname{SHA256}(x).
-$
+$$
 
 候选补丁作为结构化对象保存：
 
@@ -525,9 +525,9 @@ class Proposal:
 
 如果文件被其他程序更改，即使修改仍然看起来正确，旧补丁也不能直接覆盖新内容。提交前读取当前文件并检验：
 
-$
+$$
 h_{\rm current}=h_0.
-$
+$$
 
 若不相等，返回“版本冲突”，重新观察并生成适用于新版本的补丁。这个策略类似乐观并发控制。
 
@@ -583,9 +583,9 @@ if not human_approved:
 
 记住：
 
-$
+$$
 (k,d)\mapsto r,
-$
+$$
 
 其中 $r$ 是已确认的结果。若再次收到相同的 $(k,d)$，直接返回原结果；若相同 $k$ 携带不同 $d$，拒绝冲突。
 
@@ -597,22 +597,22 @@ $
 
 可以定义以下三个不变量：
 
-$
+$$
 \operatorname{Committed}\Rightarrow
 \operatorname{Approved}\land\operatorname{TestsPassed},
-$
+$$
 
-$
+$$
 \operatorname{Committed}\Rightarrow
 \operatorname{SHA256}(\text{原文件})=h_0
 \quad\text{（提交前检查时刻）},
-$
+$$
 
-$
+$$
 \operatorname{ReplaySameKeySamePayload}
 \Rightarrow
 \Delta\operatorname{SideEffects}=0.
-$
+$$
 
 第一个性质保证没有通过审批与独立测试的修改不能进入工作区；第二个性质在单进程模型中防止错误覆盖旧版本；第三个性质要求相同操作的重放不增加本地副作用计数。
 
