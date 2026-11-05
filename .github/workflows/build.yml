@@ -83,3 +83,4 @@ jobs:
           python examples/tiny_transformer.py
           python examples/transformer_attention_lab.py
           python examples/sft_dpo_rl_lab.py
+          python examples/tiny_lm_sft_dpo.py
