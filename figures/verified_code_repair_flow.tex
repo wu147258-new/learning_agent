@@ -1,0 +1,19 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+ stage/.style={draw=deepblue,fill=blue!6,rounded corners=2pt,minimum width=30mm,minimum height=11mm,align=center},
+ review/.style={draw=accent,fill=orange!9,rounded corners=2pt,minimum width=30mm,minimum height=11mm,align=center},
+ good/.style={draw=green!45!black,fill=green!8,rounded corners=2pt,minimum width=30mm,minimum height=11mm,align=center},
+ arr/.style={->,thick,deepblue}]
+\node[stage] (observe) at (0,1.35) {观察目标文件\\记录SHA-256};
+\node[stage] (propose) at (4,1.35) {生成候选补丁\\固定路径与操作ID};
+\node[review] (approve) at (8,1.35) {人工审批\\范围及状态校验};
+\node[stage] (stage) at (8,-1.1) {写入暂存文件\\AST约束检查};
+\node[stage] (verify) at (4,-1.1) {独立回归测试\\再次确认原文件版本};
+\node[good] (commit) at (0,-1.1) {原子替换目标文件\\记录可验证结果};
+\draw[arr] (observe.east)--(propose.west);
+\draw[arr] (propose.east)--(approve.west);
+\draw[arr] (approve.south)--node[right]{批准才继续}(stage.north);
+\draw[arr] (stage.west)--(verify.east);
+\draw[arr] (verify.west)--(commit.east);
+\draw[->,thick,accent,dashed] (verify.north)--node[left]{不通过：拒绝提交}(propose.south);
+\node[anchor=north west,align=left,text=deepblue] at (-1.7,-2.4) {代码示例只在临时工作区操作一个AST白名单函数；它验证提交协议，不是可执行任意不可信代码的沙箱。};
+\end{tikzpicture}
