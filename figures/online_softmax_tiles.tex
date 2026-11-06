@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ box/.style={draw=deepblue,rounded corners,fill=blue!6,minimum width=30mm,minimum height=12mm,align=center}]
+\node[box] (q) at (0,1.4) {查询块$Q_i$\\片上缓存};
+\node[box] (kv) at (0,-1.4) {键值块$K_j,V_j$\\分块装入};
+\node[box] (m) at (5,0) {在线softmax状态\\$m_i,\ell_i,o_i$};
+\node[box] (out) at (10,0) {归一化输出\\$o_i/\ell_i$};
+\draw[->,thick,deepblue] (q)--(m);
+\draw[->,thick,deepblue] (kv)--(m);
+\draw[->,thick,deepblue] (m)--(out);
+\node[below=9mm of m,align=center,text=accent] {不必在HBM中显式保存完整$L\times L$注意力概率矩阵};
+\end{tikzpicture}
