@@ -620,9 +620,9 @@ loss = F.cross_entropy(
 
 以RGB图像为例：
 
-$
+$$
 X\in\mathbb R^{3\times H\times W}.
-$
+$$
 
 若直接把每个像素位置都作为单独Token，一张 $1024\times1024$ 图像会产生约一百万个位置。无论注意力矩阵、位置表示还是模型输入接口，都需要考虑如何降低计算成本。
 
@@ -632,15 +632,15 @@ Vision Transformer（ViT）常见做法是把图像分成互不重叠的小块�
 
 假设 $H,W$ 都能被Patch边长 $P$ 整除，不重叠图像块数量为：
 
-$
+$$
 N_{\mathrm{patch}}=\frac{H}{P}\frac{W}{P}.
-$
+$$
 
 例如 $H=W=224$ 且 $P=16$：
 
-$
+$$
 N_{\mathrm{patch}}=14\times14=196.
-$
+$$
 
 若图像分辨率变为 $448\times448$ 而Patch边长不变，Patch数量为784，恰好扩大4倍。
 
@@ -650,26 +650,26 @@ $
 
 单个RGB Patch有 $3P^2$ 个数值。将其展开：
 
-$
+$$
 x_i\in\mathbb R^{3P^2}.
-$
+$$
 
 通过可学习的投影矩阵：
 
-$
+$$
 e_i=W_{\mathrm{patch}}x_i+b_{\mathrm{patch}},
 \qquad
 W_{\mathrm{patch}}\in\mathbb R^{d_v\times 3P^2},
-$
+$$
 
 得到视觉编码器的输入向量 $e_i\in\mathbb R^{d_v}$。
 
 如果语言模型隐藏维度是 $d_\ell$，视觉编码器输出维度是 $d_v$，通常还需要Merger或Projector：
 
-$
+$$
 z_i=W_{\mathrm{proj}}h_i,\qquad
 W_{\mathrm{proj}}\in\mathbb R^{d_\ell\times d_v}.
-$
+$$
 
 **这里的线性投影只说明维度连接。** 实际多模态模型可能使用多层MLP、视觉编码器的多层特征、特殊分隔符和分辨率相关的位置设计，不能把一个矩阵乘法误称为完整视觉语言模型实现。
 
@@ -679,20 +679,20 @@ $
 
 早期融合（Early Fusion）将映射后的视觉Token与文本Token排入模型可处理的同一个序列，再由统一骨干进行交互：
 
-$
+$$
 Z=[z_1^{\mathrm{image}},\ldots,z_m^{\mathrm{image}},
 e_1^{\mathrm{text}},\ldots,e_n^{\mathrm{text}}].
-$
+$$
 
 跨注意力（Cross-Attention）则允许文本隐藏状态作为Query，视觉特征作为Key和Value：
 
-$
+$$
 O_{\mathrm{text}}=
 \operatorname{softmax}\left(
 \frac{Q_{\mathrm{text}}K_{\mathrm{vision}}^\mathsf T}
 {\sqrt{d_h}}
 \right)V_{\mathrm{vision}}.
-$
+$$
 
 两者都能使文字生成依赖图像，但层间位置、训练目标、KV复用和推理代价不同。“视觉编码器+语言模型”并不足以判断整个模型究竟采用何种融合结构。
 
@@ -716,15 +716,15 @@ Gemma 3技术报告则给出另一个不同的工程取舍：模型增加视觉�
 
 视频包含一组带时间顺序的帧：
 
-$
+$$
 V=(X_0,t_0),(X_1,t_1),\ldots,(X_{F-1},t_{F-1}).
-$
+$$
 
 若每帧产生 $N_{\mathrm{patch}}$ 个视觉Token，不经过额外压缩时，视觉序列长度可近似按帧数线性增长：
 
-$
+$$
 T_{\mathrm{vision}}\approx F N_{\mathrm{patch}}.
-$
+$$
 
 例如每帧196个Patch、采样32帧，就已经是6272个位置，还没计入文字、时间戳、音频以及其他元数据。
 
