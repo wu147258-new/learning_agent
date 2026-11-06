@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum height=12mm,minimum width=27mm,align=center}]
+\node[b](goal) at (0,0){用户任务\\允许范围};
+\node[b](observe) at (4,0){页面观察\\DOM快照};
+\node[b](act) at (8,0){受控操作\\Click/Type};
+\node[b](verify) at (12,0){独立结果验收\\业务状态};
+\foreach \x/\y in {goal/observe,observe/act,act/verify}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of act,align=center,text=accent]{点击成功$\not\Rightarrow$订单提交或业务操作最终成功};
+\end{tikzpicture}
