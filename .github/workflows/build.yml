@@ -49,6 +49,7 @@ jobs:
           python3 examples/online_softmax_lab.py
           python3 examples/decoding_probability_lab.py
           python3 examples/gae_trajectory_lab.py
+          python3 examples/offpolicy_importance_lab.py
           python3 examples/agent_runtime_recovery.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
