@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=24mm,minimum height=11mm,align=center}]
+\node[b](a) at (0,0){A需求分析\\3单位};
+\node[b](b) at (3.6,1.5){B实现接口\\5单位};
+\node[b](c) at (3.6,-1.5){C测试设计\\4单位};
+\node[b](d) at (7.2,0){D集成验收\\2单位};
+\draw[->,thick,deepblue](a)--(b);\draw[->,thick,deepblue](a)--(c);
+\draw[->,thick,deepblue](b)--(d);\draw[->,thick,deepblue](c)--(d);
+\node[below=11mm of d,align=center,text=accent]{关键路径A--B--D共10单位；A--C--D共9单位};
+\end{tikzpicture}
