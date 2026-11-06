@@ -44,7 +44,7 @@ def check_source():
         chapter_active = section_active = False
         fence_marker = ""
         local_levels = [0, 0, 0]
-        for line in raw.splitlines():
+        for lineno, line in enumerate(raw.splitlines(), start=1):
             match = FENCE.match(line)
             if match:
                 marker = match.group(1)
@@ -55,6 +55,13 @@ def check_source():
                 continue
             if fence_marker:
                 continue
+            # Pandoc does not recognize a display equation delimited by
+            # solitary dollar-sign lines; it escapes LaTeX control sequences
+            # and XeLaTeX then fails much later with a misleading math error.
+            if line.strip() == "$":
+                raise AssertionError(
+                    f"Standalone $ delimiter in {file}:{lineno}; use $ or \\[...\\]"
+                )
             match = HEADING.match(line)
             if not match:
                 continue
