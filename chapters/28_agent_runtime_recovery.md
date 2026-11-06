@@ -147,7 +147,7 @@ SQLite事务能够保护同一数据库内按事务协议执行的写入，但�
 
 前面已说明，模型生成的动作不等于系统授权。本节进一步讨论一个实际工程接口：模型提出读取告警的请求，执行器怎样在调用前核对参数、租户、权限和调用结果？
 
-MCP（Model Context Protocol）2025-11-25规范将参与者分为Host、Client与Server，基于JSON-RPC 2.0通信。Server可以提供Tools、Resources、Prompts；工具负责执行操作，资源用于提供上下文，二者不应混淆。
+MCP（Model Context Protocol）的2025-11-25历史规范将参与者分为Host、Client与Server，基于JSON-RPC 2.0通信。Server可以提供Tools、Resources、Prompts；工具负责执行操作，资源用于提供上下文，二者不应混淆。
 
 ### 工具调用的消息结构
 
@@ -213,7 +213,20 @@ python examples/agent_protocol_contracts.py
 
 **解：** 不能。服务端存在某工具与当前用户具有工具执行权限是不同命题；写入操作需要独立的真实授权。
 
-参考：MCP官方规范 https://modelcontextprotocol.io/specification/2025-11-25 ；工具规范 https://modelcontextprotocol.io/specification/2025-11-25/server/tools ；安全实践 https://modelcontextprotocol.io/docs/2025-11-25/tutorials/security/security_best_practices 。
+### 2026-07-28现行版本与旧版本的实质区别
+
+2026-07-28正式发布的MCP规范移除旧的initialize/initialized会话握手和Mcp-Session-Id协议级会话机制，改成请求自身携带必要元数据的无状态核心。server/discover是可选的能力发现方法；Streamable HTTP新增Mcp-Method和Mcp-Name等路由头并要求与请求体一致。服务端状态需要用显式业务标识与持久存储维护，不能再假设连接会话在任意实例上自动延续。
+
+例如一次任务先创建browser_id，再通过另一个请求发送browser_id打开页面。若系统把浏览器状态仅保存在原工作进程的Python全局变量，即便请求本身符合无状态格式，也无法确保负载均衡切换实例后仍能恢复。解决办法是业务状态显式存储与身份绑定，而非隐藏的协议会话粘性。
+
+2026版还引入可缓存列表结果与更明确的cacheScope、ttlMs，支持多轮往返请求（MRTR），并强化OAuth签发者、受众和客户端元数据相关安全机制。以上是版本变化的概念概览，不表示本章的2025版JSON-RPC示例可以直接作为2026版完整报文发送。
+
+**对照练习：** 为什么API网关仅根据Mcp-Name: read_alert放行、而下游接受正文中的write_alert，是严重的协议边界错误？**解：** 网关与服务端对实际操作产生不同认知，可能让高权限操作通过低权限路由检查。必须验证头部与正文的操作身份一致，另行核对真实用户的Scope和资源权限。
+
+**离线负向实验：** 运行 python3 examples/protocol_version_boundaries.py，测试现代请求头、版本不匹配、无效令牌受众和跨租户读取。这个程序是边界模拟，不是官方MCP SDK兼容性测试。
+
+参考：MCP现行规范 https://modelcontextprotocol.io/specification/2026-07-28 ；2026年7月官方发布说明 https://blog.modelcontextprotocol.io/posts/2026-07-28/ ；历史规范 https://modelcontextprotocol.io/specification/2025-11-25 。
+
 
 
 ## 业务效果恰好一次的限制
