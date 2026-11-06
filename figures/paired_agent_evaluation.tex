@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!5,rounded corners,minimum width=27mm,minimum height=12mm,align=center}]
+\node[b](task) at (0,0){固定任务样本\\$X_i$};
+\node[b](a) at (4,1.5){基线Agent\\结果$Y_{Ai}$};
+\node[b](b) at (4,-1.5){新Agent\\结果$Y_{Bi}$};
+\node[b](compare) at (8,0){同题成对差\\$D_i=Y_{Bi}-Y_{Ai}$};
+\node[b](ci) at (12,0){区间与显著性\\失效分层};
+\draw[->,thick,deepblue](task)--(a);\draw[->,thick,deepblue](task)--(b);
+\draw[->,thick,deepblue](a)--(compare);\draw[->,thick,deepblue](b)--(compare);
+\draw[->,thick,deepblue](compare)--(ci);
+\node[below=9mm of compare,align=center,text=accent]{同一任务对比避免把任务难度差异误判为系统改进};
+\end{tikzpicture}
