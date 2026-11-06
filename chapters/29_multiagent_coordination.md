@@ -171,7 +171,7 @@ $$
 
 ### 任务状态为什么需要标准化
 
-按照当前A2A规范，TaskState的规范枚举名包括TASK_STATE_SUBMITTED、TASK_STATE_WORKING、TASK_STATE_COMPLETED、TASK_STATE_FAILED、TASK_STATE_CANCELED、TASK_STATE_REJECTED、TASK_STATE_INPUT_REQUIRED、TASK_STATE_AUTH_REQUIRED以及TASK_STATE_UNSPECIFIED。INPUT_REQUIRED表示等待额外信息，AUTH_REQUIRED表示等待身份认证，均属于中断状态而不是最终失败；COMPLETED、FAILED、CANCELED、REJECTED是终止性状态。以下流程图与教学Python示例为便于阅读省略了TASK_STATE_前缀，且只实现其中一部分状态，**并不自称覆盖完整规范**。
+按照A2A 1.0.0规范，TaskState的规范枚举名包括TASK_STATE_SUBMITTED、TASK_STATE_WORKING、TASK_STATE_COMPLETED、TASK_STATE_FAILED、TASK_STATE_CANCELED、TASK_STATE_REJECTED、TASK_STATE_INPUT_REQUIRED、TASK_STATE_AUTH_REQUIRED以及TASK_STATE_UNSPECIFIED。INPUT_REQUIRED表示等待额外信息，AUTH_REQUIRED表示等待身份认证，均属于中断状态而不是最终失败；COMPLETED、FAILED、CANCELED、REJECTED是终止性状态。以下流程图与教学Python示例为便于阅读省略了TASK_STATE_前缀，且只实现其中一部分状态，**并不自称覆盖完整规范**。
 
 对于一项长期代码审计，任务可经历：
 
@@ -252,7 +252,18 @@ python examples/agent_protocol_contracts.py
 
 ### 规范与资料
 
-A2A官方当前规范：https://a2a-protocol.org/latest/specification/ 。协议会继续演进，真实互操作测试必须固定版本与绑定方式，不能只引用会变动的latest路径声称永远兼容。
+### A2A 1.0.0与旧版枚举的兼容陷阱
+
+A2A 1.0.0正式使用TASK_STATE_前缀的大写枚举值，旧版常见的字符串submitted、working和completed不能在未经迁移的情况下被当作相同的线格式值。与此同时，部分字段命名和错误结构也存在版本变化；客户端应固定所用规范版本与SDK，并针对实际通信绑定执行兼容测试。
+
+对跨组织长任务，还需要处理Task持续执行与HTTP请求生命周期的差别。Send Message操作可能立即返回一个Task，由服务端继续处理；客户端可以通过权威Task查询、流式更新或推送通知跟踪结果，但流式通知中途断开不代表任务失败，也不保证每条历史消息必然保留。
+
+**练习：** 客户端最后看到WORKING，随后流断开，过一分钟后用户问是否完成。能否直接把WORKING当最终事实？**解：** 不能。应重新读取权威Task状态，并核对工件版本、授权与验收结果。
+
+**实验：** 使用 python3 examples/protocol_version_boundaries.py 验证缩写状态机与租户边界。程序明确不输出真实A2A线格式；正式对接还需使用官方SDK和A2A 1.0.0的实际枚举。
+
+A2A 1.0.0正式规范：https://a2a-protocol.org/v1.0.0/specification/ ；版本变化说明：https://a2a-protocol.org/latest/whats-new-v1/ 。
+
 
 
 ## 消息重复投递与任务去重
