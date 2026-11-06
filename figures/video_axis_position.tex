@@ -1,0 +1,19 @@
+\begin{tikzpicture}[>=Stealth,font=\small,frame/.style={draw=deepblue,rounded corners=2pt,minimum width=26mm,minimum height=23mm,fill=softgray},axis/.style={->,thick,accent}]
+\node[frame] (f0) at (0,0) {};
+\node[frame] (f1) at (3.7,0) {};
+\node[frame] (f2) at (7.4,0) {};
+\foreach \x in {0,3.7,7.4}{
+ \foreach \a in {0,1,2} {\foreach \b in {0,1,2} {
+  \draw[gray!65] (\x-0.9+\a*0.6,-0.9+\b*0.6) rectangle ++(0.6,0.6);
+ }}
+}
+\node at (0,-1.5) {$t_0=0\,\mathrm{s}$};
+\node at (3.7,-1.5) {$t_1=2\,\mathrm{s}$};
+\node at (7.4,-1.5) {$t_2=60\,\mathrm{s}$};
+\draw[->,thick,deepblue] (f0) -- node[above] {$2\,\mathrm{s}$} (f1);
+\draw[->,thick,deepblue] (f1) -- node[above] {$58\,\mathrm{s}$} (f2);
+\draw[axis] (0,-3.1) -- (9,-3.1) node[right] {真实时间};
+\draw[axis] (0,-3.1) -- (0,-2.0) node[above] {行 $r$};
+\draw[axis] (0,-3.1) -- (1.4,-3.8) node[right] {列 $c$};
+\node[font=\scriptsize,text=accent] at (5.1,-3.5) {位置坐标：$(t,r,c)$，非仅连续帧号};
+\end{tikzpicture}
