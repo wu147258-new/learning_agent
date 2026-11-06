@@ -6451,6 +6451,350 @@ Qwen3.5的公开模型文档提供了3层Gated DeltaNet线性注意力与1层全
 参考：OpenAI gpt-oss Model Card https://deploymentsafety.openai.com/gpt-oss/architecture ；Qwen3.5模型文档 https://huggingface.co/docs/transformers/model_doc/qwen3_5 。
 
 
+## 推理资源怎样被真正消耗：从预填充到持续解码
+
+### 同一个请求为什么有两种计算阶段
+
+假设用户输入长度为 $T_{\rm in}$ 的提示词，模型需要产生 $T_{\rm out}$ 个Token。自回归Decoder通常可以分成两类工作：
+
+- **预填充（prefill）**：将全部提示词输入模型，得到初始状态及用于解码的KV缓存；
+- **解码（decode）**：每次依据已存在的历史上下文产生下一个Token，并逐步增加缓存。
+
+若每次生成新Token都重新计算整个前缀，长度不断增长，重复计算会越来越多。KV缓存使模型可以复用历史位置的K/V，而只为新输入位置计算对应数据。
+
+预填充强调大规模矩阵计算和对长提示词的并行处理；逐Token解码往往更容易受到显存带宽、内存容量与动态批处理的限制。具体瓶颈取决于架构、硬件、批量和模型大小，不能把上述描述当作无条件定理。
+
+### 从KV缓存公式计算真实单位
+
+对于全部层均采用同形态的注意力结构，一个简化KV缓存大小为：
+
+\begin{equation*}
+M_{\rm KV}=2BLTH_{\rm kv}d_hb.
+\end{equation*}
+
+其中 $B$ 表示并行会话数，$L$ 为注意力层数，$T$ 为每个会话缓存Token数，$H_{\rm kv}$ 为每层KV头数，$d_h$ 为每头维度，$b$ 是每个元素的字节数。前面的系数2表示分别存储K和V。
+
+例如：
+
+\begin{equation*}
+B=1,\quad L=32,\quad T=8192,\quad H_{\rm kv}=32,\quad d_h=128,\quad b=2.
+\end{equation*}
+
+则：
+
+\begin{equation*}
+M_{\rm KV}
+=2\times1\times32\times8192\times32\times128\times2
+=4294967296\text{ bytes}=4\text{ GiB}.
+\end{equation*}
+
+把KV头数从32改为8，其他条件保持不变，得到1 GiB。**这是缓存本身的算术比较，不是整个模型显存只需1 GiB。** 权重、量化元数据、临时激活和内存分配器仍需额外空间。
+
+### MoE与混合注意力为什么改变这个公式的适用条件
+
+MoE通常改变前馈网络的专家组织，不必然改变注意力KV存储。混合注意力则可能使不同层具有不同缓存或状态结构：全注意力层保存K/V，某些线性状态层使用固定大小递推状态。因此不能直接把一个固定的 $L,H_{\rm kv}$ 套到每一种2026年模型上。
+
+对于Qwen3.5/Qwen3.6这类公开采用混合注意力结构的模型，资源核算应当逐层统计具体状态，不应将所有层都计算为完整KV缓存。实际实现还要包括编码视觉输入的额外模块及其状态。
+
+## KV缓存分页与连续批处理：为什么vLLM不只是一个API服务器
+
+### 常规连续缓存有什么浪费
+
+如果服务同时处理许多长度不同的会话，提前为每个会话按照最大上限分配一大块连续缓存，会让短请求浪费大量内存；如果运行时频繁扩展与搬运连续缓冲区，则会带来管理成本。
+
+vLLM官方文档说明，其推理服务采用PagedAttention和连续批处理等机制；这两项机制分别关注**缓存管理**与**请求调度**，不能视作同一个算法。
+
+### 分页缓存的基本计数
+
+假设每块KV缓存页面能容纳 $P$ 个Token，当前会话 $i$ 使用了 $T_i$ 个Token。若按块分配，其最少需要：
+
+\begin{equation*}
+N_i=\left\lceil \frac{T_i}{P}\right\rceil
+\end{equation*}
+
+个块。总块数：
+
+\begin{equation*}
+N_{\rm total}=\sum_i\left\lceil\frac{T_i}{P}\right\rceil.
+\end{equation*}
+
+最后一块的内部碎片为：
+
+\begin{equation*}
+W=\sum_i\left(P\left\lceil\frac{T_i}{P}\right\rceil-T_i\right).
+\end{equation*}
+
+例如块容量为16个Token，三个请求长度分别为1、17、31，则需要的块数为1、2、2，总计5块、容量80个Token；实际只使用49个Token，未用容量为31个Token。
+
+这个例子刻意选择了短且不对齐的请求以展示内碎片。**分页减少连续分配浪费，并不代表内碎片严格为零。** 实际服务还涉及块映射、复用、前缀共享与缓存驱逐，具体开销取决于实现。
+
+### 连续批处理不是传统的整批等待
+
+传统静态批处理可能要求整个批次同时开始并等待全部序列完成。连续批处理则允许在解码步骤之间接纳新请求，将已完成请求移出活动集合。
+
+假设有三个请求：
+
+| 请求 | 进入时间片 | 需要生成的Token数 |
+|---|---:|---:|
+| A | 0 | 2 |
+| B | 1 | 3 |
+| C | 2 | 1 |
+
+如果每个时间片为所有已到达且未完成的请求各生成一个Token，则活动请求数依次是1、2、2、1。真实服务还受到Prefill资源、并发上限、优先级和内存容量约束，这个离线例子只解释调度概念。
+
+### 预填充与解码分离的工程取舍
+
+当长提示词与短解码请求混在一起时，大量预填充计算可能影响已在解码中的请求延迟。部分部署架构把预填充与解码放在不同的工作资源上，称为Disaggregated Prefill/Decode。
+
+它能在某些负载下改善资源利用和服务质量，但也会引入缓存传输、网络、队列和资源预留成本。是否更快必须在明确的请求长度分布、硬件及负载下测试。
+
+## 低比特量化的数值原理：权重存储减少不等于推理一定加速
+
+### 从浮点权重变成离散整数
+
+考虑权重向量：
+
+\begin{equation*}
+w=(w_1,\ldots,w_n).
+\end{equation*}
+
+对于对称 $b$ 位定点量化，定义最大整数幅值：
+
+$Q=2^{b-1}-1.$
+
+若本组最大绝对权重为 $m=\max_i|w_i|$，可取：
+
+\begin{equation*}
+s=\frac{m}{Q},\qquad
+q_i=\operatorname{clip}\left(\operatorname{round}(w_i/s),-Q,Q\right),
+\end{equation*}
+
+并重建：
+
+$\widehat w_i=sq_i.$
+
+当 $m>0$ 且最大值用于定义比例时，原始值不会超出量化区间；按最近整数四舍五入，每个元素的绝对重建误差有界于 $s/2$（忽略浮点计算误差及舍入边界实现细节）。
+
+若该组全为零，可单独使用正比例因子并生成全零编码，避免被零除。
+
+### 为什么4位常见整数范围是-7到7
+
+对于对称带符号4位教学方案：
+
+$Q=2^3-1=7.$
+
+因此用整数编码 $-7,-6,\ldots,0,\ldots,7$。某些硬件实现也会利用全部16个编码位置，或采用非对称零点和不同量化格式；本节仅展示最简单的对称方案。
+
+### 分组量化如何降低离群值影响
+
+如果整层只有一个巨大的权重，统一比例因子会变大，较小权重只能用很粗的整数等级表示。
+
+分组量化把权重按组拆分，每组独立计算比例因子：
+
+\begin{equation*}
+s_g=\frac{\max_{i\in g}|w_i|}{Q}.
+\end{equation*}
+
+例如前4个权重都在绝对值1.2以内，后4个权重达到绝对值16。若全8个权重共用一个比例因子，小权重的可表示步长约为 $16/7$；拆成两个4元素组后，第一组步长降到 $1.2/7$。
+
+这解释了分组量化可能降低误差的原因，但不保证任何分组方法都在所有模型与任务上获得更高准确率。
+
+### 理论存储字节数还必须计入量化元数据
+
+若有 $n$ 个量化权重、每个逻辑编码 $b$ 位，分组大小为 $G$，每组比例因子使用 $s_b$ 字节，一个简化的权重存储计算式为：
+
+\begin{equation*}
+M_{\rm quant}=
+\left\lceil\frac{nb}{8}\right\rceil+
+\left\lceil\frac{n}{G}\right\rceil s_b.
+\end{equation*}
+
+对于8个4位权重、每组4个，若比例因子占2字节，则理论上编码数据4字节、比例因子4字节，合计8字节。原始8个FP16权重理论上为16字节。
+
+实际实现还可能有零点、排列、对齐、打包和设备内存分配开销。因此不能把这个简化结果误认为真实张量分配精确值。
+
+### W4A16、W8A8与QAT各解决什么
+
+W4A16通常表示权重主要采用4位表示，而激活保留16位计算精度；W8A8表示权重和激活各采用8位量化表示。不同算子最终的累加精度和缩放规则仍由内核决定。
+
+PTQ（训练后量化）主要从已有权重与校准数据得到量化表示；QAT（量化感知训练）在训练阶段模拟量化误差，使模型有机会适应有限精度。
+
+截至2026年，PyTorch生态中的torchao和相关推理框架公开提供多种低比特与FP8推理配置。它们支持的算子和硬件不同，不能仅凭“W4”字样推断任何显卡都有同样的性能提升。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.96\linewidth}{!}{\input{figures/inference_memory_pipeline.tex}}
+\caption{模型推理的权重、KV缓存、预填充与持续解码：量化和PagedAttention优化不同资源}
+\end{figure}
+
+### 可以真正运行的离线实验
+
+~~~bash
+python examples/inference_quantization_lab.py
+~~~
+
+实验将多个权重分组量化为逻辑int4代码，验证重建误差、分组均方误差、量化元数据开销、GQA/MHA缓存容量、分页块数和连续批处理的简化调度。
+
+**注意：这个Python程序没有调用GPU量化内核，也没有启动vLLM。** 它只能证明数学与计数方式一致，不能把模拟运算速度当成真实部署性能。
+
+### 将公开模型接入实际部署时该测什么
+
+以公开模型卡给出的总参数、活跃参数、注意力结构和量化格式为起点，之后必须针对目标硬件测量：
+
+- 权重加载后的实际峰值显存与缓存大小；
+- 提示词预填充吞吐及首Token延迟；
+- 不同上下文长度下的单请求解码速度；
+- 并发为1、4、16时的P50和P95延迟；
+- 工具调用频繁的Agent任务端到端完成耗时；
+- 量化前后相同任务集的准确率、回退率与费用。
+
+vLLM官方说明包括PagedAttention、连续批处理、Chunked Prefill、量化和推测解码等服务机制；它们是否可同时启用，需核对具体版本、模型结构和设备支持情况。官方文档：https://docs.vllm.ai/en/latest/ 。PyTorch量化文档：https://docs.pytorch.org/ao/stable/workflows/inference.html 。
+
+### 习题与解答
+
+**题一：** KV头数从32降到8，在其他缓存维度相同时，KV缓存容量变化多少？
+
+**解：** 缓存大小对KV头数线性变化，所以降至原来的四分之一，即理论节约75%的KV缓存，不表示整机显存节约75%。
+
+**题二：** 块大小16，请求长度为1、17、31，内部碎片是多少？
+
+**解：** 总分配块数为 $1+2+2=5$，总容量80，实际长度49，所以内碎片31个Token槽位。
+
+**题三：** 为什么4位权重不必然带来4倍推理吞吐？
+
+**解：** 量化缩小的主要是权重表示；实际吞吐还受反量化、算子支持、内核启动、带宽、计算、缓存、调度及模型结构影响。必须使用真实硬件基准比较。
+
+**题四：** 8个4位权重、每组4个、每组2字节比例因子，理论存储多少字节？
+
+**解：** 4字节整数编码+2组×2字节比例因子=8字节。这是未计入额外元数据与对齐的理想存储公式。
+
+
+## 推测解码：较小草稿模型怎样在不改变目标分布的前提下加速采样
+
+### “草稿模型预测得像”不等于可以无条件接受
+
+假设一个小草稿模型给出Token条件分布 $q(x)$，目标模型给出更可信的分布 $p(x)$。最简单的做法是从 $q$ 采样一个Token，然后直接接受；但这样输出服从的是 $q$，不是目标分布 $p$。
+
+真正的推测解码需要设计接受与拒绝后的校正，使最终采样分布仍然是目标分布。vLLM官方推理文档在2026年已将推测解码列为其推理优化机制之一；具体服务端还涉及批量Token验证、KV状态和并行内核。
+
+### 从拒绝采样公式推导单Token校正
+
+先从草稿分布 $q$ 采样候选 $X$。若 $q(X)>0$，以概率：
+
+\begin{equation*}
+a(X)=\min\left(1,\frac{p(X)}{q(X)}\right)
+\end{equation*}
+
+接受该Token。若拒绝，则从剩余概率的正部分重新采样：
+
+\begin{equation*}
+r(x)=\frac{(p(x)-q(x))_+}{\sum_y(p(y)-q(y))_+},
+\quad (z)_+=\max(z,0).
+\end{equation*}
+
+这里分母仅在有拒绝概率时需要计算。如果 $p=q$，所有草稿Token都可接受，不需要再采样剩余分布。
+
+为什么这个算法没有改变目标分布？
+
+草稿建议并被接受为 $x$ 的概率为：
+
+\begin{equation*}
+q(x)\min\left(1,\frac{p(x)}{q(x)}\right)=\min(q(x),p(x)).
+\end{equation*}
+
+总拒绝概率为：
+
+\begin{equation*}
+P(\text{reject})
+=1-\sum_x\min(q(x),p(x))
+=\sum_x(p(x)-q(x))_+.
+\end{equation*}
+
+因此最终输出 $x$ 的概率：
+
+\begin{equation*}
+\begin{aligned}
+P(\text{output}=x)
+&=\min(q(x),p(x))
++P(\text{reject})r(x)\\
+&=\min(q(x),p(x))+(p(x)-q(x))_+\\
+&=p(x).
+\end{aligned}
+\end{equation*}
+
+这是**单个Token的精确概率恒等式**。推广到多Token批量验证时，还要正确更新每个位置的条件概率与KV状态，不能直接以此片段冒充完整GPU推测解码实现。
+
+### 接受率与分布距离的关系
+
+单Token接受率：
+
+\begin{equation*}
+\alpha=\sum_x\min(p(x),q(x)).
+\end{equation*}
+
+总变差距离：
+
+\begin{equation*}
+\operatorname{TV}(p,q)=\frac12\sum_x|p(x)-q(x)|.
+\end{equation*}
+
+由于二者都是归一化分布：
+
+\begin{equation*}
+\boxed{\alpha=1-\operatorname{TV}(p,q).}
+\end{equation*}
+
+当草稿和目标分布高度接近时，接受率较高；当二者差异很大时，频繁校正会削弱加速效果。实际吞吐还要计入草稿推理与目标验证的计算费用。
+
+### 一个可以手算的例子
+
+假设词表只有三个Token：
+
+$p=(0.6,0.3,0.1),\qquad q=(0.3,0.2,0.5).$
+
+可接受概率的总量：
+
+\begin{equation*}
+\alpha=\min(0.6,0.3)+\min(0.3,0.2)+\min(0.1,0.5)
+=0.3+0.2+0.1=0.6.
+\end{equation*}
+
+被拒绝的剩余目标质量：
+
+\begin{equation*}
+(p-q)_+=(0.3,0.1,0).
+\end{equation*}
+
+因此拒绝后从 $(0.75,0.25,0)$ 采样。最终三个Token的概率分别为：
+
+\begin{equation*}
+(0.3,0.2,0.1)+(0.3,0.1,0)=(0.6,0.3,0.1)=p.
+\end{equation*}
+
+### 可运行实验与结果解释
+
+~~~bash
+python examples/speculative_decoding_lab.py
+~~~
+
+脚本既验证上述每个Token的理论概率恒等式，也通过固定随机种子重复采样，观察经验输出频率是否接近目标分布。它还检查草稿与目标分布完全一致、支持集完全不相交等边界情况。
+
+实际部署时，草稿模型过大可能抵消验证收益；目标模型验证批次太小或接受率太低也可能降低收益。必须分别测量真实吞吐、首Token延迟、P95延迟和任务质量，而不能仅根据接受率就宣称加速比例。
+
+### 练习
+
+**题一：** 若 $p=q$，接受率是多少？  
+**解：** $\operatorname{TV}(p,q)=0$，因此 $\alpha=1$。
+
+**题二：** 若 $p=(1,0)$、$q=(0,1)$，接受率是多少？  
+**解：** 每一项最小概率都为0，因此 $\alpha=0$；草稿永远被拒绝，剩余采样应从目标分布的第一个Token产生结果。
+
+**题三：** 草稿Token采样后被接受，为什么仍不能断言这个Token的目标概率一定高于0.5？  
+**解：** 接受事件取决于目标与草稿在该Token上的相对概率，而不是目标概率是否超过固定阈值。非常小的目标概率只要草稿更小，也可能被完整接受。
+
+参考：vLLM当前官方文档 https://docs.vllm.ai/en/latest/ 。
+
+
 ## 量化、蒸馏与缓存
 
 **量化**降低权重或激活的数值精度以节省存储与计算成本，但可能影响某些困难任务的准确率；**蒸馏**利用较强模型的数据或分布信号训练较小模型；**缓存**避免重复的计算或检索，但必须识别上下文、权限和数据版本是否变化。
@@ -8245,10 +8589,10 @@ s_2=q^\mathsf Tk_2/\sqrt2=0.$$
 
 对两个得分进行Softmax：
 
-$$
+\begin{equation*}
 \alpha_i=\frac{e^{s_i}}{e^{s_1}+e^{s_2}},
 \qquad \alpha_1+\alpha_2=1.
-$$
+\end{equation*}
 
 数值上 $\alpha_1\approx0.6698$，$\alpha_2\approx0.3302$。输出：
 
@@ -8270,13 +8614,13 @@ $$QK^\mathsf T\in\mathbb R^{T\times T}.$$
 
 其第 $(i,j)$ 个元素是第 $i$ 个查询与第 $j$ 个键的内积。设掩码矩阵为 $M$，注意力结果为：
 
-$$
+\begin{equation*}
 \boxed{
 O=\operatorname{softmax}_{\mathrm{row}}
 \left(QK^\mathsf T/\sqrt{d_k}+M\right)V
 \in\mathbb R^{T\times d_v}.
 }
-$$
+\end{equation*}
 
 \begin{figure}[htbp]
 \centering
@@ -8312,12 +8656,12 @@ $$\mathbb E[Z]=0,\qquad \operatorname{Var}(Z)=d_k.$$
 
 令：
 
-$$
+\begin{equation*}
 M_{ij}=\begin{cases}
 0,&j\le i,\\
 -\infty,&j>i.
 \end{cases}
-$$
+\end{equation*}
 
 这样对于未来位置 $j>i$：
 
@@ -8354,10 +8698,10 @@ $$O_h=\operatorname{Attention}(Q_h,K_h,V_h).$$
 
 将所有头在特征维拼接：
 
-$$
+\begin{equation*}
 H=\operatorname{Concat}(O_1,\ldots,O_{n_h}),
 \qquad \operatorname{MHA}(X)=HW_O.
-$$
+\end{equation*}
 
 多头结构允许不同投影关注不同关系，但不能保证每个头必定学到一种人类能命名的语言规则。
 
@@ -8393,15 +8737,15 @@ $$Y=U+\operatorname{FFN}(\operatorname{LN}(U)).$$
 
 对Token特征向量 $x\in\mathbb R^d$：
 
-$$
+\begin{equation*}
 \mu=\frac1d\sum_i x_i,\quad
 \sigma^2=\frac1d\sum_i(x_i-\mu)^2,
-$$
+\end{equation*}
 
-$$
+\begin{equation*}
 \operatorname{LN}(x)_i=
 \gamma_i\frac{x_i-\mu}{\sqrt{\sigma^2+\epsilon}}+\beta_i.
-$$
+\end{equation*}
 
 LN通常对单个Token的特征维度计算统计量；它与依赖批次统计量的BatchNorm不同。
 
@@ -8423,23 +8767,23 @@ $y=\operatorname{FFN}(x).$
 
 MoE（Mixture of Experts）把前馈部分替换为 $E$ 个专家网络 $f_1,\ldots,f_E$ 和一个路由器。对Token表示 $x$，路由器计算专家得分 $z=Wx$，选择得分最高的 $k$ 个专家：
 
-$$
+\begin{equation*}
 \mathcal K(x)=\operatorname{TopK}(z,k).
-$$
+\end{equation*}
 
 将被选择专家的得分重新做Softmax归一化：
 
-$$
+\begin{equation*}
 \alpha_i(x)=
 \frac{e^{z_i}}{\sum_{j\in\mathcal K(x)}e^{z_j}},
 \quad i\in\mathcal K(x).
-$$
+\end{equation*}
 
 输出：
 
-$$
+\begin{equation*}
 \boxed{y=\sum_{i\in\mathcal K(x)}\alpha_i(x)f_i(x).}
-$$
+\end{equation*}
 
 并非每个模型都使用完全相同的路由归一化，也可能包含共享专家、路由偏置、专家容量限制及负载均衡机制；以上是最基础的Top-k MoE教学定义。
 
@@ -8479,11 +8823,11 @@ $P_{\rm experts,active/token}\approx2\times10^6.$
 
 可以用一批Token分配到每个专家的数量 $n_e$ 观察负载：
 
-$$
+\begin{equation*}
 p_e=\frac{n_e}{\sum_{j=1}^{E}n_j},
 \quad
 H=-\sum_e p_e\log p_e.
-$$
+\end{equation*}
 
 熵 $H$ 可以描述分配是否集中，但并不自动等于训练中实际使用的负载均衡损失。不同模型可能采用辅助负载损失、无辅助损失的动态偏置等具体策略。DeepSeek-V3报告披露了不额外引入辅助损失的负载均衡方法；这些细节需要和一般MoE理论明确区分。
 
@@ -8500,10 +8844,10 @@ MoE带来参数容量与活跃计算的解耦，但训练和推理可能需要�
 
 位置 $t$ 的词表得分为 $z\in\mathbb R^V$，真实Token编号为 $y$：
 
-$$
+\begin{equation*}
 p_j=\frac{e^{z_j}}{\sum_ke^{z_k}},
 \qquad \ell(z,y)=-\log p_y.
-$$
+\end{equation*}
 
 展开：
 
@@ -8519,9 +8863,9 @@ $$\boxed{\frac{\partial\ell}{\partial z_j}=p_j-\mathbf1[j=y].}$$
 
 直接计算 $e^{1000}$ 容易浮点溢出。令 $m=\max_j z_j$：
 
-$$
+\begin{equation*}
 \log\sum_je^{z_j}=m+\log\sum_je^{z_j-m}.
-$$
+\end{equation*}
 
 这两项严格等价，但右式的指数输入均不大于0，数值更稳定。训练程序应使用实现了数值稳定性的交叉熵算子，而不是自行串联未经保护的exp、sum与log。
 
@@ -8535,17 +8879,17 @@ $$
 
 对于查询头 $h$，可令它使用KV组：
 
-$$
+\begin{equation*}
 \operatorname{group}(h)=\left\lfloor h/g\right\rfloor.
-$$
+\end{equation*}
 
 单头输出仍为缩放点积注意力，只是多个查询头复用同一组Key和Value：
 
-$$
+\begin{equation*}
 O_h=\operatorname{softmax}
 \left(\frac{Q_hK_{\operatorname{group}(h)}^{\mathsf T}}{\sqrt{d_h}}+M\right)
 V_{\operatorname{group}(h)}.
-$$
+\end{equation*}
 
 **减少KV头不等于减少查询头。** 它主要降低KV投影与缓存规模，同时可能影响模型表达与质量，需要在特定模型上评测。
 
@@ -8553,9 +8897,9 @@ $$
 
 忽略额外元数据时，KV缓存：
 
-$$
+\begin{equation*}
 M_{\mathrm{KV}}=2BLTH_{\rm kv}d_hb.
-$$
+\end{equation*}
 
 假设批量 $B=1$，层数 $L=32$，缓存长度 $T=8192$，查询头数 $H_q=32$，每头维度 $d_h=128$，KV元素占2字节。
 
@@ -8588,9 +8932,9 @@ QK-Norm在注意力打分前对查询和键施加适当归一化；Pre-Norm通�
 
 对于加入QK-Norm的版本，推导注意力分数时需将经过归一化的 $\widetilde Q,\widetilde K$ 代入：
 
-$$
+\begin{equation*}
 S=\widetilde Q\widetilde K^{\mathsf T}/\sqrt{d_h}+M.
-$$
+\end{equation*}
 
 实际归一化的具体定义、是否带可学习权重和作用维度须以模型实现为准。
 
@@ -8630,12 +8974,12 @@ GQA通过共享KV头降低缓存维度。另一条路线是先把历史Token的�
 
 假设原始维度为 $d$，潜在缓存维度为 $r$，且 $r\ll d$：
 
-$$
+\begin{equation*}
 c_t=W_{\mathrm{down}}x_t\in\mathbb R^r,
 \qquad
 \widetilde k_t=W_{\mathrm{up},k}c_t,\quad
 \widetilde v_t=W_{\mathrm{up},v}c_t.
-$$
+\end{equation*}
 
 如果只缓存 $c_t$，每个历史位置所需存储可以从若干完整KV向量降到 $r$ 个元素；但是计算过程中是否需要额外的解码、矩阵吸收和位置编码处理，要取决于真实实现。
 
@@ -8677,26 +9021,26 @@ python examples/model_architecture_patterns.py
 
 为了理解固定大小状态的来源，先考虑一个**教学用的核化注意力简化式**。令 $\phi(q),\phi(k)\in\mathbb R^r$ 为非负特征映射，定义：
 
-$$
+\begin{equation*}
 S_t=\sum_{j=1}^{t}\phi(k_j)v_j^\mathsf T,\qquad
 z_t=\sum_{j=1}^{t}\phi(k_j).
-$$
+\end{equation*}
 
 它们可以逐位置更新：
 
-$$
+\begin{equation*}
 S_t=S_{t-1}+\phi(k_t)v_t^\mathsf T,\qquad
 z_t=z_{t-1}+\phi(k_t).
-$$
+\end{equation*}
 
 当前查询的输出：
 
-$$
+\begin{equation*}
 \boxed{
 o_t=\frac{\phi(q_t)^\mathsf TS_t}
 {\phi(q_t)^\mathsf Tz_t}.
 }
-$$
+\end{equation*}
 
 只要分母为正，这就等于对此前所有键和值按 $\phi(q_t)^\mathsf T\phi(k_j)$ 权重加权归一化。这类状态只需要保存 $S_t$ 与 $z_t$，其维度不随历史Token数线性增长。
 
@@ -8746,11 +9090,11 @@ $$q'_m=R(m\omega)q,\qquad k'_n=R(n\omega)k,$$
 
 则：
 
-$$
+\begin{equation*}
 (q'_m)^\mathsf Tk'_n
 =q^\mathsf TR(m\omega)^\mathsf TR(n\omega)k
 =q^\mathsf TR((n-m)\omega)k.
-$$
+\end{equation*}
 
 因此内积包含相对位置差 $n-m$。多维RoPE将特征分成多个二维坐标对并使用不同频率；频率定义、坐标布局和长度扩展方案必须与模型实现一致。
 
@@ -8813,6 +9157,187 @@ loss = F.cross_entropy(
 ~~~
 
 如果输入包含Padding或指令部分，必须进一步构造损失掩码；否则会把本应忽略的位置也纳入监督。仅会调用交叉熵函数，不等于已经正确设置训练任务。
+
+
+## Transformer如何接收图像与视频：从Patch到多模态Token
+
+### 文本序列之外，图像为什么必须先编码
+
+前面构建的Decoder Transformer从离散Token索引开始，把每个索引映射到一个 $d$ 维向量。图像却是一个三维数值张量：通道、高度和宽度。
+
+以RGB图像为例：
+
+$$
+X\in\mathbb R^{3\times H\times W}.
+$$
+
+若直接把每个像素位置都作为单独Token，一张 $1024\times1024$ 图像会产生约一百万个位置。无论注意力矩阵、位置表示还是模型输入接口，都需要考虑如何降低计算成本。
+
+Vision Transformer（ViT）常见做法是把图像分成互不重叠的小块（Patch），每块展开并投影成特征向量。多模态生成模型可以将这些视觉特征以不同方式连接到语言模型。
+
+### Patch数量怎样由图像分辨率决定
+
+假设 $H,W$ 都能被Patch边长 $P$ 整除，不重叠图像块数量为：
+
+$$
+N_{\mathrm{patch}}=\frac{H}{P}\frac{W}{P}.
+$$
+
+例如 $H=W=224$ 且 $P=16$：
+
+$$
+N_{\mathrm{patch}}=14\times14=196.
+$$
+
+若图像分辨率变为 $448\times448$ 而Patch边长不变，Patch数量为784，恰好扩大4倍。
+
+因此动态分辨率模型不能把“每张图片消耗的视觉Token数”视为固定常数。真实视觉编码器还可能使用裁剪、缩放、Patch合并和多尺度特征，实际Token数量由模型预处理与合并规则共同决定。
+
+### 从一个Patch到语言模型可用的隐藏向量
+
+单个RGB Patch有 $3P^2$ 个数值。将其展开：
+
+$$
+x_i\in\mathbb R^{3P^2}.
+$$
+
+通过可学习的投影矩阵：
+
+$$
+e_i=W_{\mathrm{patch}}x_i+b_{\mathrm{patch}},
+\qquad
+W_{\mathrm{patch}}\in\mathbb R^{d_v\times 3P^2},
+$$
+
+得到视觉编码器的输入向量 $e_i\in\mathbb R^{d_v}$。
+
+如果语言模型隐藏维度是 $d_\ell$，视觉编码器输出维度是 $d_v$，通常还需要Merger或Projector：
+
+$$
+z_i=W_{\mathrm{proj}}h_i,\qquad
+W_{\mathrm{proj}}\in\mathbb R^{d_\ell\times d_v}.
+$$
+
+**这里的线性投影只说明维度连接。** 实际多模态模型可能使用多层MLP、视觉编码器的多层特征、特殊分隔符和分辨率相关的位置设计，不能把一个矩阵乘法误称为完整视觉语言模型实现。
+
+### 早期融合与跨注意力有什么区别
+
+两种常见模式可以从注意力的输入来源区分。
+
+早期融合（Early Fusion）将映射后的视觉Token与文本Token排入模型可处理的同一个序列，再由统一骨干进行交互：
+
+$$
+Z=[z_1^{\mathrm{image}},\ldots,z_m^{\mathrm{image}},
+e_1^{\mathrm{text}},\ldots,e_n^{\mathrm{text}}].
+$$
+
+跨注意力（Cross-Attention）则允许文本隐藏状态作为Query，视觉特征作为Key和Value：
+
+$$
+O_{\mathrm{text}}=
+\operatorname{softmax}\left(
+\frac{Q_{\mathrm{text}}K_{\mathrm{vision}}^\mathsf T}
+{\sqrt{d_h}}
+\right)V_{\mathrm{vision}}.
+$$
+
+两者都能使文字生成依赖图像，但层间位置、训练目标、KV复用和推理代价不同。“视觉编码器+语言模型”并不足以判断整个模型究竟采用何种融合结构。
+
+### 公开模型实例：Qwen3-VL、Llama 4与Gemma 3
+
+Qwen3-VL技术报告于2025年公开，介绍了视觉编码器、视觉语言Merger与语言骨干的组合，并讨论Interleaved-MRoPE、DeepStack和视频的文本时间戳对齐。报告同时披露Dense与MoE多个规模的变体。对本节来说，重要的是**多尺度图像特征和时空位置不能只用“图像就是一段文字”解释**。
+
+Meta的Llama 4模型卡明确将Scout、Maverick描述为使用MoE和Early Fusion的原生多模态自回归模型；视觉与文本可以在统一骨干里交互。但这并不代表它们与Qwen3-VL的视觉特征处理、训练数据及位置编码完全一样。
+
+Gemma 3技术报告则给出另一个不同的工程取舍：模型增加视觉输入能力，同时通过增加局部与全局注意力层比例、缩短局部窗口来控制长上下文KV缓存的增长。它证明“是否支持图像”和“如何管理长上下文缓存”是两个需要一起设计、却不属于同一技术问题的维度。
+
+| 模型公开案例 | 可确认的设计要点 | 与本节概念的联系 |
+|---|---|---|
+| Qwen3-VL | 视觉编码器、Merger、DeepStack及多模态位置结构 | 图像特征投影、空间/时间关联 |
+| Llama 4 Scout/Maverick | 原生多模态、Early Fusion与MoE | 多模态序列融合与稀疏专家 |
+| Gemma 3 | 视觉输入、较高局部注意力比例 | 多模态与KV资源的协同约束 |
+
+上述表格只整理公开文献能够支持的结构，不能用来推断其他闭源模型的未公开细节，也不构成真实性能排名。
+
+### 为什么视频比单张图像更复杂
+
+视频包含一组带时间顺序的帧：
+
+$$
+V=(X_0,t_0),(X_1,t_1),\ldots,(X_{F-1},t_{F-1}).
+$$
+
+若每帧产生 $N_{\mathrm{patch}}$ 个视觉Token，不经过额外压缩时，视觉序列长度可近似按帧数线性增长：
+
+$$
+T_{\mathrm{vision}}\approx F N_{\mathrm{patch}}.
+$$
+
+例如每帧196个Patch、采样32帧，就已经是6272个位置，还没计入文字、时间戳、音频以及其他元数据。
+
+仅将帧按顺序拼接，模型未必能准确区分“同时出现”“发生在前”和“间隔多久”；因此视频架构需要显式或隐式的位置与时间关联。这是Qwen3-VL公开文档讨论改进时空表示和文本时间对齐的根本问题之一。
+
+### 多模态Agent中的证据链比图像识别更难
+
+一个Agent根据设备机房照片判断指示灯是否异常时，除了生成“红灯亮起”的描述，还应记录：
+
+- 输入图片或视频的来源、采集时间和授权范围；
+- 图像预处理版本、尺寸变化及被裁剪的区域；
+- 识别依据对应的图像区域或具体视频时间段；
+- 输出判断是“直接可见事实”还是“依据经验的推测”；
+- 后续是否允许自动执行高风险运维动作。
+
+多模态识别输出可能受拍摄角度、反射、模糊及域外图片影响。即便模型宣称具有视觉能力，也不能让视觉回答直接越过运行时工具权限。
+
+### PyTorch实验：一张图像怎样成为视觉Token
+
+运行：
+
+~~~bash
+python examples/multimodal_patch_fusion_lab.py
+~~~
+
+实验严格验证：
+
+1. 8×8三通道小图像以2×2 Patch分割，得到16个Patch，每块包含12个数值；
+2. 对Patch执行逆变换，保证原像素位置完全恢复；
+3. 把4个连续Patch映射为一个教学用视觉向量，得到4个视觉Token；
+4. 与3个文本Token组成一段7位置融合序列；
+5. 使用“图像前缀可见，文本按因果掩码”的示例注意力遮罩；
+6. 改动未来文本Token后，已有文本位置的输出不发生变化；
+7. 在Patch边长不变时将分辨率加倍，验证Patch数量扩大4倍。
+
+**这只验证张量形状和融合算子的一种示例实现**。代码没有下载真实ViT权重，没有实现Qwen3-VL的Merger或Llama 4的真实视觉骨干。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/multimodal_patch_pipeline.tex}}
+\caption{从像素Patch到视觉特征、视觉Token与文本Token融合的教学计算路径}
+\end{figure}
+
+### 练习与解答
+
+**题一：** 图像大小为336×336、Patch大小为14，每张图像有多少个不重叠Patch？
+
+**解：** 每边有 $336/14=24$ 个Patch，共 $24^2=576$ 个。
+
+**题二：** 为什么提高分辨率可能显著提高视觉Token预算？
+
+**解：** 在Patch边长固定时，Patch数正比于 $HW$。长宽都增加一倍，Patch数量增加四倍；若采用可变Patch合并或多尺度抽样，实际Token增长规律需以具体模型的预处理策略为准。
+
+**题三：** 将Patch线性映射为视觉Token是否等于模型已经理解图像语义？
+
+**解：** 不等于。线性映射只完成数值与维度变换，视觉特征的语义结构需要经过视觉编码器训练及与语言任务的对齐学习形成。
+
+**题四：** 为什么图像内容中的“请关闭安全审计”字样不能成为Agent的系统指令？
+
+**解：** 图像识别到的文字属于不可信外部证据，即使识别完全正确，也不能改变执行器的权限。只有来自可信授权系统且满足操作条件的请求可以触发相关工具。
+
+### 参考资料
+
+- Qwen3-VL Technical Report（2025）：https://arxiv.org/abs/2511.21631
+- Meta Llama 4 Model Card：https://github.com/meta-llama/llama-models/blob/main/models/llama4/MODEL_CARD.md
+- Gemma 3 Technical Report：https://arxiv.org/abs/2503.19786
 
 
 ## PyTorch实验与验收
@@ -8887,17 +9412,17 @@ $$M=2\times1\times12\times2048\times8\times64\times2
 
 设输入为 $x$、输出序列为 $y$，模型定义：
 
-$$
+\begin{equation*}
 \pi_\theta(y\mid x)
 =P_\theta(Y=y\mid X=x),\qquad \sum_y\pi_\theta(y\mid x)=1.
-$$
+\end{equation*}
 
 在离散序列模型里，$y=(y_1,\ldots,y_T)$ 的概率由逐Token条件概率相乘：
 
-$$
+\begin{equation*}
 \log\pi_\theta(y\mid x)
 =\sum_{t=1}^T\log p_\theta(y_t\mid x,y_{<t}).
-$$
+\end{equation*}
 
 实践中还需约定结束Token、截断和Padding。不同长度序列如果把Token平均对数概率与总对数概率混为一谈，将得到不同的优化目标。
 
@@ -8911,18 +9436,18 @@ $$D_{\mathrm{SFT}}=\{(x_i,y_i)\}_{i=1}^N.$$
 
 在样本按训练协议抽取的条件下，最大化答案条件似然：
 
-$$
+\begin{equation*}
 \max_\theta \prod_i\pi_\theta(y_i\mid x_i).
-$$
+\end{equation*}
 
 对数将乘积转成求和。训练时通常最小化负对数似然：
 
-$$
+\begin{equation*}
 \boxed{
 L_{\mathrm{SFT}}(\theta)=
 -\frac1N\sum_{i=1}^{N}\log\pi_\theta(y_i\mid x_i).
 }
-$$
+\end{equation*}
 
 如果是批量逐Token交叉熵，应明确分母是样本数、有效Token数，还是逐样本归一化后的均值。不同方式改变长答案与短答案的相对权重。
 
@@ -8936,9 +9461,9 @@ $$
 
 在一个固定状态下，专家做了10次选择，其中行动0出现8次、行动1出现2次。令 $\pi(0)=p$、$\pi(1)=1-p$：
 
-$$
+\begin{equation*}
 L(p)=-\frac1{10}[8\log p+2\log(1-p)].
-$$
+\end{equation*}
 
 求导：
 
@@ -8970,21 +9495,21 @@ DPO将偏好数据连接到一个特定的带KL约束的奖励优化问题。
 
 对于固定输入 $x$，设参考条件分布为 $\pi_{\rm ref}(y\mid x)$，奖励为 $r(x,y)$，约束系数为 $\beta>0$。目标：
 
-$$
+\begin{equation*}
 \max_{\pi}
 \left[
 \sum_y\pi(y\mid x)r(x,y)
 -\beta D_{\rm KL}(\pi(\cdot\mid x)\|\pi_{\rm ref}(\cdot\mid x))
 \right].
-$$
+\end{equation*}
 
 其中：
 
-$$
+\begin{equation*}
 D_{\rm KL}(\pi\|\pi_{\rm ref})
 =\sum_y\pi(y\mid x)\log\frac{\pi(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}.
-$$
+\end{equation*}
 
 这里要求参考分布对所考虑响应具有正概率，且归一化常数有限。KL项限制候选分布偏离参考分布过大。它不是硬性地禁止任何分布变化，而是将变化成本加入优化目标。
 
@@ -8992,33 +9517,33 @@ $$
 
 引入归一化约束 $\sum_y\pi(y\mid x)=1$ 的乘子 $\lambda$。对每个 $\pi(y\mid x)$ 求导：
 
-$$
+\begin{equation*}
 r(x,y)-\beta\left[\log\frac{\pi(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}+1\right]+\lambda=0.
-$$
+\end{equation*}
 
 整理可得：
 
-$$
+\begin{equation*}
 \boxed{
 \pi^*(y\mid x)
 =\frac{\pi_{\rm ref}(y\mid x)\exp(r(x,y)/\beta)}{Z(x)},
 }
-$$
+\end{equation*}
 
 其中：
 
-$$
+\begin{equation*}
 Z(x)=\sum_y\pi_{\rm ref}(y\mid x)\exp(r(x,y)/\beta).
-$$
+\end{equation*}
 
 反解奖励：
 
-$$
+\begin{equation*}
 r(x,y)=\beta\log\frac{\pi^*(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}
 +\beta\log Z(x).
-$$
+\end{equation*}
 
 对于同一个输入 $x$ 的两个答案，最后一项相同，做差时会抵消。
 
@@ -9026,37 +9551,37 @@ $$
 
 采用Bradley–Terry型成对偏好概率模型：
 
-$$
+\begin{equation*}
 P(y^+\succ y^-\mid x)
 =\sigma(r(x,y^+)-r(x,y^-)),
-$$
+\end{equation*}
 
 其中 $\sigma(z)=1/(1+e^{-z})$。令：
 
-$$
+\begin{equation*}
 d_\theta=
 \left[\log\pi_\theta(y^+\mid x)
 -\log\pi_\theta(y^-\mid x)\right]
 -
 \left[\log\pi_{\rm ref}(y^+\mid x)
 -\log\pi_{\rm ref}(y^-\mid x)\right].
-$$
+\end{equation*}
 
 代入可得：
 
-$$
+\begin{equation*}
 P_\theta(y^+\succ y^-\mid x)=\sigma(\beta d_\theta).
-$$
+\end{equation*}
 
 因此最大化偏好比较的条件似然，等价于最小化：
 
-$$
+\begin{equation*}
 \boxed{
 L_{\rm DPO}(\theta)
 =-\mathbb E_{(x,y^+,y^-)\sim D}
 \log\sigma(\beta d_\theta).
 }
-$$
+\end{equation*}
 
 \begin{figure}[htbp]
 \centering
@@ -9068,10 +9593,10 @@ $$
 
 对单个比较样本：
 
-$$
+\begin{equation*}
 \frac{\partial L_{\rm DPO}}{\partial d_\theta}
 =-\beta\,\sigma(-\beta d_\theta).
-$$
+\end{equation*}
 
 若偏好的回答相对于参考模型不够占优，$d_\theta$ 较小，推动其相对概率增加的梯度较大；若已经十分占优，梯度逐步变小。
 
@@ -9091,10 +9616,10 @@ DPO能够在离线偏好数据上更新模型，而不必在这一阶段在线�
 
 目标定义为：
 
-$$
+\begin{equation*}
 J(\theta)=\mathbb E_{A\sim\pi_\theta}[r(A)]
 =\sum_a\pi_\theta(a\mid s)r(a).
-$$
+\end{equation*}
 
 若两行动概率都为0.5，当前期望收益为2。提高高收益行动1的概率，能提高理论期望，但要考虑行动被允许、奖励定义正确等前提。
 
@@ -9102,14 +9627,14 @@ $$
 
 只要 $\pi_\theta(a)>0$ 且可微：
 
-$$
+\begin{equation*}
 \nabla_\theta\pi_\theta(a)
 =\pi_\theta(a)\nabla_\theta\log\pi_\theta(a).
-$$
+\end{equation*}
 
 代入期望的梯度：
 
-$$
+\begin{equation*}
 \begin{aligned}
 \nabla_\theta J
 &=\sum_a\nabla_\theta\pi_\theta(a)r(a)\\
@@ -9117,7 +9642,7 @@ $$
 &=\mathbb E_{A\sim\pi_\theta}
 [r(A)\nabla_\theta\log\pi_\theta(A)].
 \end{aligned}
-$$
+\end{equation*}
 
 这个恒等式是REINFORCE类方法的核心，但在采样数量有限时，梯度估计可能具有很高的方差。
 
@@ -9125,20 +9650,20 @@ $$
 
 若基线 $b(s)$ 对给定状态不依赖采样行动：
 
-$$
+\begin{equation*}
 \begin{aligned}
 \mathbb E[b(s)\nabla_\theta\log\pi_\theta(A\mid s)]
 &=b(s)\sum_a\nabla_\theta\pi_\theta(a\mid s)\\
 &=b(s)\nabla_\theta1=0.
 \end{aligned}
-$$
+\end{equation*}
 
 因此：
 
-$$
+\begin{equation*}
 \nabla_\theta J
 =\mathbb E[(r(A)-b(s))\nabla_\theta\log\pi_\theta(A\mid s)].
-$$
+\end{equation*}
 
 合适的基线可能降低采样方差，却不能任意取一个与行动相关的数仍套用该结论。若基线由同一网络产生，还需要对相应的梯度路径作正确处理。
 
@@ -9154,9 +9679,9 @@ $$P(S_{t+1}=s'\mid S_t=s,A_t=a)$$
 
 若每步奖励为 $R_t$，折扣因子 $0\le\gamma<1$，累计收益：
 
-$$
+\begin{equation*}
 G_t=\sum_{k=0}^{\infty}\gamma^kR_{t+k}.
-$$
+\end{equation*}
 
 有限任务则将求和限制在终止时刻，终止后的奖励视具体定义处理。
 
@@ -9168,11 +9693,11 @@ $$V^\pi(s)=\mathbb E_\pi[G_t\mid S_t=s].$$
 
 在马尔可夫假设和适当可积条件下：
 
-$$
+\begin{equation*}
 V^\pi(s)=\sum_a\pi(a\mid s)
 \sum_{s'}P(s'\mid s,a)
 \left[r(s,a,s')+\gamma V^\pi(s')\right].
-$$
+\end{equation*}
 
 这是Bellman期望方程。它来自全期望公式以及回报的递推定义，而不是只需记忆的行业术语。
 
@@ -9180,19 +9705,19 @@ $$
 
 若环境转移分布不依赖待优化参数 $\theta$，轨迹 $\tau=(S_0,A_0,\ldots,S_T)$ 的联合概率可分解：
 
-$$
+\begin{equation*}
 P_\theta(\tau)
 =P(S_0)\prod_{t=0}^{T-1}
 \pi_\theta(A_t\mid S_t)\,
 P(S_{t+1}\mid S_t,A_t).
-$$
+\end{equation*}
 
 于是：
 
-$$
+\begin{equation*}
 \nabla_\theta\log P_\theta(\tau)
 =\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(A_t\mid S_t).
-$$
+\end{equation*}
 
 可将累计收益乘上轨迹对数梯度，构造对 $\nabla_\theta\mathbb E[G]$ 的采样估计。若环境动力学也依赖 $\theta$，就不能不加说明地忽略它的梯度项。
 
@@ -9202,9 +9727,9 @@ $$
 
 定义行动条件价值：
 
-$$
+\begin{equation*}
 Q^\pi(s,a)=\mathbb E_\pi[G_t\mid S_t=s,A_t=a].
-$$
+\end{equation*}
 
 优势：
 
@@ -9220,10 +9745,10 @@ $$\delta_t=R_t+\gamma\widehat V(S_{t+1})-\widehat V(S_t).$$
 
 广义优势估计（GAE）的一种形式为：
 
-$$
+\begin{equation*}
 \widehat A_t=\sum_{\ell=0}^{T-t-1}
 (\gamma\lambda)^\ell\delta_{t+\ell},\qquad0\le\lambda\le1.
-$$
+\end{equation*}
 
 在有限终止轨迹上，应正确处理终止状态的价值和截断（truncation）状态的自举项；把时间限制截断都误当作真实终止，会造成偏差。
 
@@ -9231,15 +9756,15 @@ $$
 
 设采样时的旧分布为 $\pi_{\rm old}$，需要优化的新分布为 $\pi_\theta$。对采样行动定义：
 
-$$
+\begin{equation*}
 \rho_t(\theta)=
 \frac{\pi_\theta(A_t\mid S_t)}
 {\pi_{\rm old}(A_t\mid S_t)}.
-$$
+\end{equation*}
 
 PPO的一种常见剪切代理目标：
 
-$$
+\begin{equation*}
 \boxed{
 L^{\rm CLIP}(\theta)=
 \mathbb E\left[
@@ -9250,7 +9775,7 @@ L^{\rm CLIP}(\theta)=
 \right)
 \right].
 }
-$$
+\end{equation*}
 
 优化时最大化此目标。对正优势，过高的比率不会持续得到额外奖励；对负优势，过低的比率也受到剪切限制。剪切机制降低单次更新过大的激励，但**不严格保证KL距离始终不超过固定阈值**，实际仍需要监控KL与奖励、失败率等指标。
 
@@ -9268,22 +9793,22 @@ DeepSeek-R1论文公开了使用Group Relative Policy Optimization（GRPO）的�
 
 设某个问题 $q$ 有 $G$ 个候选答案，其奖励为：
 
-$$
+\begin{equation*}
 r_1,r_2,\ldots,r_G.
-$$
+\end{equation*}
 
 令组内均值和标准差为：
 
-$$
+\begin{equation*}
 \bar r=\frac1G\sum_{i=1}^G r_i,\qquad
 s_r=\sqrt{\frac1G\sum_{i=1}^G(r_i-\bar r)^2}.
-$$
+\end{equation*}
 
 当 $s_r>0$ 时，可以构造：
 
-$$
+\begin{equation*}
 \boxed{A_i=\frac{r_i-\bar r}{s_r}.}
-$$
+\end{equation*}
 
 该式解释了同一道题中“比其他答案好”与“奖励绝对值高”的区别。组内中心化并不保证奖励本身无偏，也不能修复错误的自动检查器。
 
@@ -9291,21 +9816,21 @@ $$
 
 假设同一问题采样四条回答，奖励是 $(1,0,1,0)$。则：
 
-$$
+\begin{equation*}
 \bar r=(1+0+1+0)/4=0.5.
-$$
+\end{equation*}
 
 标准差：
 
-$$
+\begin{equation*}
 s_r=\sqrt{[(0.5)^2+(-0.5)^2+(0.5)^2+(-0.5)^2]/4}=0.5.
-$$
+\end{equation*}
 
 因此：
 
-$$
+\begin{equation*}
 (A_1,A_2,A_3,A_4)=(1,-1,1,-1).
-$$
+\end{equation*}
 
 优势为正的样本应提高相对发生概率，为负的样本应降低其相对发生概率，但还需考虑采样时旧模型分布、剪切限制和参考分布正则项。
 
@@ -9313,13 +9838,13 @@ $$
 
 一个简化的按响应记录的代理目标可写为：
 
-$$
+\begin{equation*}
 J(\theta)=\frac1G\sum_{i=1}^G
 \min\left(
 \rho_i(\theta)A_i,\,
 \operatorname{clip}(\rho_i(\theta),1-\epsilon,1+\epsilon)A_i
 \right),
-$$
+\end{equation*}
 
 其中 $\rho_i(\theta)=\pi_\theta(o_i\mid q)/\pi_{\rm old}(o_i\mid q)$。这用于理解“组内比较 + 受控策略更新”的组合。
 
@@ -9418,11 +9943,11 @@ GLM-5团队在2026年的公开技术报告中描述了**将轨迹生成与策略
 
 对于满足覆盖条件的离散行动分布：
 
-$$
+\begin{equation*}
 \mathbb E_{A\sim\pi_\theta}[f(A)]
 =\mathbb E_{A\sim\mu}
 \left[\frac{\pi_\theta(A)}{\mu(A)}f(A)\right].
-$$
+\end{equation*}
 
 其中必须要求：若 $\pi_\theta(a)>0$，则 $\mu(a)>0$。这个恒等式解释了离策略重要性权重的数学来源，不代表在任意长轨迹上使用它都数值稳定。
 
@@ -9451,6 +9976,242 @@ verification_results
 假设有两条轨迹，一条在旧模型版本A生成，另一条在版本B生成，当前训练版本是C。讨论：如何记录每条轨迹的旧动作概率、如何限制高比率导致的方差、哪些失败轨迹不应当悄悄删除？此外，说明为什么异步训练吞吐提高不能单独证明最终任务成功率提高。
 
 参考：GLM-5 Team，*GLM-5: from Vibe Coding to Agentic Engineering*（2026），https://arxiv.org/abs/2602.15763 。
+
+
+## 多步强化学习实战：从一条Agent轨迹到可微训练目标
+
+### 为什么只学习最终答案不够
+
+假设Agent正在处理系统故障，可以选择直接猜测原因，也可以先执行一项检查。检查本身消耗成本，却可能提供能改变后续动作的新信息。
+
+如果仅训练“最终回答正确”，模型未必能学会判断何时值得花成本调用工具。如果简单把调用工具次数当作奖励，模型又可能故意进行多次无用检查。
+
+最自然的表示是一个带观测的多步决策过程：行动不仅影响眼前奖励，也影响后续可获得的信息。
+
+### 建立一个可以枚举全部轨迹的两步环境
+
+设故障原因是一个隐藏比特：
+
+$H\in\{0,1\},\qquad P(H=0)=P(H=1)=1/2.$
+
+第一步Agent有三种行动：
+
+- Inspect：支付0.1单位成本，并观测到真实的隐藏比特；
+- Guess0：不检查，直接猜测0并结束；
+- Guess1：不检查，直接猜测1并结束。
+
+如果先检查，第二步根据观测到的比特选择Guess0或Guess1；猜对得到1，猜错得到0。检查成本在轨迹总奖励中减去。
+
+这不是文本游戏，而是一个简化的部分可观察决策问题：检查行动改变了可获得的信息，因此其收益需要由后续行动的条件期望衡量。
+
+### 从全概率公式算出最优决策倾向
+
+设首步策略为：
+
+\begin{equation*}
+\pi_\theta(I)=p_I,\quad
+\pi_\theta(G_0)=p_0,\quad
+\pi_\theta(G_1)=p_1,\quad
+p_I+p_0+p_1=1.
+\end{equation*}
+
+在检查后，如果隐藏原因是 $h$，令第二步选择正确答案的概率为：
+
+\begin{equation*}
+c_h=P_\theta(A_1=h\mid H=h,\ A_0=I).
+\end{equation*}
+
+那么期望总收益：
+
+\begin{equation*}
+\boxed{
+J(\theta)=
+p_I\left[-0.1+\tfrac12c_0+\tfrac12c_1\right]
++\tfrac12p_0+\tfrac12p_1.
+}
+\end{equation*}
+
+这是从三种首步行动分别取条件期望，再按首步行动概率求和得到的。
+
+若首步三种行动等概率，检查后的两个选择也等概率，则：
+
+\begin{equation*}
+J=\tfrac13(0.4)+\tfrac13(0.5)+\tfrac13(0.5)
+=\tfrac7{15}\approx0.4667.
+\end{equation*}
+
+若Agent学会在首步总是检查，并在第二步总是猜对，则期望收益趋近于 $1-0.1=0.9$。
+
+对照之下，始终不检查并直接猜测任意固定值的期望收益只有0.5。检查是否值得，取决于信息价值与检查成本的比较；若检查成本超过0.5，最佳策略可能改变。
+
+### 轨迹联合概率为何能分解
+
+将环境隐藏比特、首步行动和可选的第二步行动组合为轨迹：
+
+$\tau=(H,A_0,A_1).$
+
+其中未执行Inspect时不包含 $A_1$。其联合概率为：
+
+\begin{equation*}
+P_\theta(\tau)
+=P(H)\pi_\theta(A_0\mid s_0)
+\begin{cases}
+\pi_\theta(A_1\mid H),& A_0=I,\\
+1,& A_0\ne I.
+\end{cases}
+\end{equation*}
+
+因此，对数概率的策略相关部分：
+
+\begin{equation*}
+\log\pi_\theta(\tau)
+=\log\pi_\theta(A_0\mid s_0)
++\mathbf1[A_0=I]\log\pi_\theta(A_1\mid H).
+\end{equation*}
+
+这说明多步Agent并不是只有一次Softmax：每一步实际选择的行动都贡献策略对数概率。为了训练，必须记录实际行动、当时的策略版本和外部观测，而不能仅保留最终回答。
+
+### 由轨迹直接推导策略梯度
+
+设轨迹总奖励为 $R(\tau)$，环境随机变量的采样分布不依赖模型参数。则：
+
+\begin{equation*}
+J(\theta)=\sum_\tau P_\theta(\tau)R(\tau).
+\end{equation*}
+
+使用对数导数恒等式：
+
+\begin{equation*}
+\nabla_\theta J
+=\sum_\tau
+P_\theta(\tau)R(\tau)
+\nabla_\theta\log\pi_\theta(\tau).
+\end{equation*}
+
+可以加上不依赖于当次行动的基线 $b$：
+
+\begin{equation*}
+\boxed{
+\nabla_\theta J
+=
+\mathbb E_{\tau\sim P_\theta}
+[(R(\tau)-b)\nabla_\theta\log\pi_\theta(\tau)].
+}
+\end{equation*}
+
+该表达式解释REINFORCE。若基线依赖当前状态而不依赖当前行动，可逐时间步构造状态基线；但不能随意让基线依赖采样行动而仍假定梯度无偏。
+
+### 枚举全部轨迹验证梯度，而不只看损失下降
+
+本环境有8种带隐藏状态的结果：两个隐藏值分别对应两种直接猜测与两种检查后的猜测。
+
+程序逐一构造每条轨迹的概率和奖励，计算两种梯度：
+
+1. 直接对 $J(\theta)=\sum_\tau P_\theta(\tau)R(\tau)$ 求自动微分；
+2. 构造对数导数形式的期望并求导。
+
+正确实现时，两种梯度应在数值精度内一致。然后从策略实际采样6000条轨迹，使用样本得分函数估计梯度，比较它与精确梯度之间的误差。
+
+这比“训练损失下降”更严格地检查了：采样轨迹是否与策略对应、哪一步产生奖励、隐藏变量是否被正确边缘化，以及基线是否错误地进入了梯度。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/rl_two_step_rollout.tex}}
+\caption{两步Agent：检查带来信息收益，也产生即时成本；最终奖励取决于完整执行轨迹}
+\end{figure}
+
+## 将PPO从单个动作扩展到多步轨迹
+
+### 为什么需要记录旧概率
+
+假设轨迹是由旧策略 $\mu$ 生成，而当前训练策略是 $\pi_\theta$。只要旧策略对目标策略支持的结果有正概率：
+
+\begin{equation*}
+\mathbb E_{\tau\sim P_\theta}[R(\tau)]
+=
+\mathbb E_{\tau\sim P_\mu}
+\left[
+\frac{P_\theta(\tau)}{P_\mu(\tau)}R(\tau)
+\right].
+\end{equation*}
+
+在环境转移分布不依赖 $\theta$ 且行为与目标使用相同环境机制时，轨迹比率可以化简为各实际行动概率比率的乘积：
+
+\begin{equation*}
+\frac{P_\theta(\tau)}{P_\mu(\tau)}
+=
+\prod_{t\in\tau}
+\frac{\pi_\theta(A_t\mid S_t)}
+{\mu(A_t\mid S_t)}.
+\end{equation*}
+
+这是多步离策略校正的基础。但轨迹越长，多个比率相乘可能造成很大的数值波动，导致采样方差剧增。因此真实长轨迹训练往往需要比率截断、逐步优势、数据新鲜度限制和其他稳定性措施。
+
+### 一个教学用的轨迹级PPO剪切项
+
+设旧轨迹概率为 $P_{\rm old}(\tau)$，新旧比率：
+
+$\rho_\tau(\theta)=P_\theta(\tau)/P_{\rm old}(\tau).$
+
+给定一个固定优势值 $A_\tau$，可定义教学用剪切代理目标：
+
+\begin{equation*}
+L_{\rm toy}(\theta)
+=
+\sum_\tau P_{\rm old}(\tau)
+\min\left(
+\rho_\tau A_\tau,
+\operatorname{clip}(\rho_\tau,1-\epsilon,1+\epsilon)A_\tau
+\right).
+\end{equation*}
+
+这里的计算是**轨迹级**而不是标准PPO常见的逐时间步剪切目标。它用来解释比率与剪切的关系，不能误写成完整的RLHF/PPO算法复现。
+
+真实Agent训练需明确旧策略概率记录、奖励延迟、多步归因、GAE、参考策略KL、行动遮罩和工具调用的时间尺度。
+
+### 强化学习与规划算法为什么需要共享状态契约
+
+规划章节用状态空间和合法行动集合表示执行；强化学习章节又用状态与行动分布表示选择。如果二者使用的状态定义不一致，训练得到的策略可能提出执行器不能识别或不允许的行动。
+
+例如训练时将“提交补丁”视为一个总能成功的动作，生产环境却要求审批、代码版本检查和测试，那么训练回报中就遗漏了实际失败概率及审批成本。
+
+解决方法是让训练环境与生产工具网关共享明确的动作类型与约束，并在训练回放中记录被拒绝、超时和实际结果。不能把Agent自己生成的“测试通过”视为真实环境奖励。
+
+### 跟着代码复现整条训练链
+
+~~~bash
+python examples/multistep_rl_rollout_lab.py
+~~~
+
+实验包括：
+
+1. 构造隐藏原因与三种首步行动；
+2. 枚举八种轨迹，计算期望总收益；
+3. 用自动微分和Score Function独立求导并验证一致；
+4. 从环境真实采样6000条轨迹，估计策略梯度；
+5. 进行一次PPO式剪切更新，比较真实期望收益；
+6. 检验离策略重要性加权恒等式；
+7. 用精确期望目标训练策略，让Agent倾向于先检查再正确处理。
+
+这是有限玩具MDP，不训练语言模型权重。实验的价值在于每个概率、成本、梯度和观测都可以逐项核算。
+
+### 练习与详解
+
+**题一：** 若检查后总能猜对，检查成本从0.1涨到0.6，是否还应总是先检查？
+
+**解：** 检查后期望收益为 $1-0.6=0.4$，直接固定猜测的期望收益为0.5，因此纯收益目标下不应总检查。
+
+**题二：** 为什么轨迹级比率不是简单的最后一个动作概率比率？
+
+**解：** 整条轨迹的概率是各阶段条件行动概率与环境转移概率的乘积。若首步Inspect发生概率改变，即使第二步条件概率完全不变，轨迹概率也会改变。
+
+**题三：** 旧策略对某条目标策略可能产生的轨迹赋予概率零，会发生什么？
+
+**解：** 重要性比率分母为零，不能使用该恒等式从旧样本无偏估计目标策略在这条轨迹上的贡献。这是支持集覆盖条件。
+
+**题四：** 模型是否只要学会“先检查”就一定获得0.9期望收益？
+
+**解：** 不一定。0.9的上界还要求检查后的行动能正确利用观测；如果第二步仍随机猜测，Inspect路径的期望收益只有0.4。
 
 
 ## 工程中的训练数据与安全验证
@@ -9528,11 +10289,11 @@ python examples/tiny_lm_sft_dpo.py
 
 **解：**
 
-$$
+\begin{equation*}
 d_\theta=
 \log(0.6/0.4)-\log(0.2/0.8)
 =\log1.5-\log0.25=\log6.
-$$
+\end{equation*}
 
 若 $\beta=1$，单样本DPO损失是 $-\log\sigma(\log6)=-\log(6/7)=\log(7/6)$。
 
@@ -9635,10 +10396,10 @@ BFS保证的是**最少边数**，不是任意加权图中的最小成本。
 
 在边成本非负时，Dijkstra算法始终扩展当前已知累计成本最小的状态，并通过松弛更新相邻状态：
 
-$$
+\begin{equation*}
 g(s')\leftarrow
 \min\{g(s'),\,g(s)+c(s,a)\}.
-$$
+\end{equation*}
 
 当目标首次以当前最小成本出队时，能够得到最小累计成本。若存在负权边，普通Dijkstra的保证不再成立。
 
@@ -9650,9 +10411,9 @@ $$
 
 Dijkstra不利用与目标有关的额外信息。A*为每个状态构造：
 
-$$
+\begin{equation*}
 f(s)=g(s)+h(s),
-$$
+\end{equation*}
 
 其中：
 
@@ -9665,9 +10426,9 @@ A*优先扩展 $f(s)$ 较小的状态。
 
 若真实最优剩余成本为 $h^*(s)$，启发式满足：
 
-$$
+\begin{equation*}
 0\le h(s)\le h^*(s),
-$$
+\end{equation*}
 
 则称其为可采纳（admissible）。它不会高估剩余成本。
 
@@ -9684,9 +10445,9 @@ h(\text{开始})=4.$$
 
 更强的条件是：对于每条边 $s\to s'$，
 
-$$
+\begin{equation*}
 h(s)\le c(s,a)+h(s').
-$$
+\end{equation*}
 
 这称为一致性（consistent）。非负成本加上一致启发式，使常见的图搜索实现能够在状态从优先队列正式取出后安全地标记为已完成。
 
@@ -9704,9 +10465,9 @@ $$
 
 假设必须先读取文件，再形成补丁，然后运行测试。依赖关系可以写为：
 
-$$
+\begin{equation*}
 \text{读取}\prec\text{修复}\prec\text{验证}.
-$$
+\end{equation*}
 
 若存在两个互不依赖的测试，它们可以并发执行；如果两个操作同时写同一个文件，则必须明确版本冲突和写入顺序。
 
@@ -9833,7 +10594,7 @@ $$P(S_{t+1}=s'\mid S_t=s,A_t=a).$$
 
 在合法行动集合 $\mathcal A(s)$ 上：
 
-$$
+\begin{equation*}
 \boxed{
 V_t(s)=\min_{a\in\mathcal A(s)}
 \left[
@@ -9841,7 +10602,7 @@ c_t(s,a)+
 \sum_{s'}P(s'\mid s,a)V_{t+1}(s')
 \right].
 }
-$$
+\end{equation*}
 
 这来自条件期望的线性性、全概率公式和在当前状态下选取最小条件期望成本。这里的 $c_t(s,a)$ 表示已将即时随机成本取条件期望的结果。
 
@@ -9878,12 +10639,12 @@ $$b_t(s)=P(S_t=s\mid O_{0:t},A_{0:t-1}).$$
 
 观察到告警后的故障概率：
 
-$$
+\begin{equation*}
 P(F\mid+)=
 \frac{0.8\times0.1}
 {0.8\times0.1+0.05\times0.9}
 =\frac{0.08}{0.125}=0.64.
-$$
+\end{equation*}
 
 这表示获得告警证据后，按给定模型故障概率更新为64%，不意味着故障已被确定。是否执行修复，还要结合修复成本、误修风险及进一步检查的价值。
 
@@ -9896,11 +10657,11 @@ $$\widetilde b_{t+1}(s')
 
 再用观测似然更新：
 
-$$
+\begin{equation*}
 b_{t+1}(s')=
 \frac{P(o\mid s',a)\widetilde b_{t+1}(s')}
 {\sum_uP(o\mid u,a)\widetilde b_{t+1}(u)}.
-$$
+\end{equation*}
 
 这就是部分可观察序列决策中常见的信念状态更新。实际系统中需要估计转移与观测模型，否则得到的概率只是建立在假设上的数值。
 
@@ -10024,6 +10785,227 @@ python examples/agent_architecture_patterns.py
 - Yao et al., *ReAct: Synergizing Reasoning and Acting in Language Models*：https://arxiv.org/abs/2210.03629
 - LangGraph，中断与检查点文档：https://docs.langchain.com/oss/python/langgraph/interrupts
 - OpenAI Agents SDK，运行与编排：https://developers.openai.com/api/docs/guides/agents/running-agents
+
+
+## 从规划器到完整项目：亲手实现一个可验证的代码修复Agent
+
+### 一次代码修复不只是生成新函数
+
+假设项目里的计算函数应执行两数相加，却错误地使用减法：
+
+~~~python
+def add(a, b):
+    return a - b
+~~~
+
+模型提出正确候选代码并不复杂。但一个具有实际写入能力的Agent，还需要回答：
+
+- 修改目标文件是否在当前任务允许的路径中？
+- 它看到的文件版本是否仍是当前版本？
+- 是否有人批准把修改写入工作区？
+- 候选代码是否通过独立于生成器的验收测试？
+- 执行过程中出错，是否保留了原文件？
+- 操作确认消息丢失后，重新提交会不会造成第二次写入？
+
+因此，本节将Agent拆成六种职责明确的组件，真正运行一次观察、提议、审核、验证与提交的闭环。
+
+### 第一步：定义可验证任务
+
+设任务为：
+
+\begin{equation*}
+\mathcal T=(F,\ H_0,\ \mathcal A,\ G,\ B).
+\end{equation*}
+
+其中 $F$ 是获授权目标文件；$H_0$ 是观察时文件内容的SHA-256指纹；$\mathcal A$ 是允许执行的操作集合；$G$ 是必须通过的验收条件；$B$ 是预算。
+
+在本实验中：
+
+- 只能修改临时目录中的calculator.py；
+- 初始文件包含带缺陷的add(a,b)函数；
+- 候选只能替换这个已知函数；
+- 需要显式批准才能把修改提交到工作区；
+- 必须通过整数、负数和零值的测试；
+- 同一操作ID只能具有一种固定修改内容。
+
+这与生产环境的“用户自然语言要求修复整个项目”差距很大，但能在不依赖网络API的情况下逐步验证完整执行协议。
+
+### 第二步：将观察结果绑定版本
+
+Agent观察文件后，得到原始文本 $x$ 和指纹：
+
+\begin{equation*}
+h_0=\operatorname{SHA256}(x).
+\end{equation*}
+
+候选补丁作为结构化对象保存：
+
+~~~python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Proposal:
+    relative_path: str
+    original_sha: str
+    replacement: str
+    operation_key: str
+~~~
+
+如果文件被其他程序更改，即使修改仍然看起来正确，旧补丁也不能直接覆盖新内容。提交前读取当前文件并检验：
+
+\begin{equation*}
+h_{\rm current}=h_0.
+\end{equation*}
+
+若不相等，返回“版本冲突”，重新观察并生成适用于新版本的补丁。这个策略类似乐观并发控制。
+
+### 第三步：区分计划许可与执行许可
+
+规划器能够产生候选修改，但系统不应让它自行决定是否越过人工审批。审批门槛由工具执行器检查：
+
+~~~python
+if not human_approved:
+    raise PermissionError("write requires approval")
+~~~
+
+此外，还要检查文件必须属于明确授权的集合、路径不能逃逸工作区，以及调用不能超出预算。文件名只是参数，不是资源访问权限。
+
+截至2026年的OpenAI Agents SDK官方文档将输入Guardrails、输出Guardrails、工具Guardrails与人工审批分成不同环节，并指出Agent级输入/输出Guardrail并不自动覆盖每个中间工具调用。
+
+因此对修改文件或提交工单等动作，应在**真正产生副作用的工具边界**实施检查，不能只在第一次收到用户请求时检查一次。
+
+### 第四步：在提交前运行独立验收
+
+候选代码通过语法分析不代表业务正确。Python里减法函数也可以合法解析，甚至在某些输入上产生偶然正确的结果。独立验收至少包括：
+
+1. 代码符合本任务允许的结构；
+2. 已知错误能够被正确修复；
+3. 不同输入类别的回归样例全部通过；
+4. 修改范围与预期一致。
+
+本例采用AST白名单，只允许单个没有装饰器、没有额外调用的add(a,b)函数，其主体只能是a+b或a-b，且没有其他语句。之后才运行一组明确的算术测试。
+
+这种严格白名单仅适合极小的教学对象，**不是安全执行任意第三方Python代码的沙箱**。实际代码审计Agent应使用隔离进程、最小文件和网络权限、独立镜像及资源限制，不能因为AST检查通过就随意执行未知项目。
+
+### 第五步：暂存、验证和原子替换
+
+将修复内容先写入同一工作目录的暂存文件，独立测试通过且目标指纹仍匹配后，再进行原子替换：
+
+~~~text
+已授权的目标文件
+       ↓ 观察 + SHA-256
+生成固定范围的候选修复
+       ↓ 审批检查
+暂存候选文件
+       ↓ AST范围检查 + 独立测试
+再次确认原文件SHA-256
+       ↓ 同文件系统原子替换
+写入操作结果与证据
+~~~
+
+这里所说原子替换只表示使用同一文件系统上的替换机制尽量避免半成品目标文件，并不意味着提供数据库与文件联合事务，也不保证突然断电后的持久性。在多进程真实系统里，还需要持久锁或原子版本协议处理提交竞争。
+
+### 第六步：让重试与副作用彼此可区分
+
+设某次提交的业务操作键为 $k$，将路径、旧指纹和新内容组成载荷指纹 $d$。
+
+记住：
+
+\begin{equation*}
+(k,d)\mapsto r,
+\end{equation*}
+
+其中 $r$ 是已确认的结果。若再次收到相同的 $(k,d)$，直接返回原结果；若相同 $k$ 携带不同 $d$，拒绝冲突。
+
+在教学代码中，这个映射保存在进程内存，因此只能验证**同一进程的重复调用**。真实长任务恢复需要把结果记录持久化，并确认异常重启后仍能恢复状态。
+
+这个细节十分关键：不能因为一份演示使用了操作键，就声称它在多机、断电、网络故障条件下拥有业务效果恰好一次的保证。
+
+### 用状态不变量证明修复流程的正确性
+
+可以定义以下三个不变量：
+
+\begin{equation*}
+\operatorname{Committed}\Rightarrow
+\operatorname{Approved}\land\operatorname{TestsPassed},
+\end{equation*}
+
+\begin{equation*}
+\operatorname{Committed}\Rightarrow
+\operatorname{SHA256}(\text{原文件})=h_0
+\quad\text{（提交前检查时刻）},
+\end{equation*}
+
+\begin{equation*}
+\operatorname{ReplaySameKeySamePayload}
+\Rightarrow
+\Delta\operatorname{SideEffects}=0.
+\end{equation*}
+
+第一个性质保证没有通过审批与独立测试的修改不能进入工作区；第二个性质在单进程模型中防止错误覆盖旧版本；第三个性质要求相同操作的重放不增加本地副作用计数。
+
+生产版本还应验证文件锁与竞争窗口、原子提交结果持久化、工件签名和身份授权有效期。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.95\linewidth}{!}{\input{figures/verified_code_repair_flow.tex}}
+\caption{代码修复Agent的验证闭环：观察、版本校验、独立测试与提交}
+\end{figure}
+
+### 运行完整项目
+
+~~~bash
+python examples/verified_code_repair_agent.py
+~~~
+
+程序使用Python标准库自动建立临时工作区，并在执行后清理。无需Docker、模型API或真实GitHub凭证。
+
+实验会依次执行：
+
+1. 证明原有减法函数无法通过目标算术测试；
+2. 生成有限范围的加法修复候选；
+3. 拒绝未获批准的写入请求；
+4. 拒绝语法合法但业务测试失败的候选；
+5. 批准修复并通过独立测试，原子替换文件；
+6. 再提交同一操作键，副作用计数仍为1；
+7. 拒绝旧版本指纹、越权路径与包含额外代码的候选。
+
+### 如何升级为真正的代码Agent
+
+当教学例子运行通过后，可以沿以下方向增加复杂度，但每项都需要配套验收：
+
+- 将确定性候选生成器替换为实际LLM接口；结构化输出仍须被当作待验证数据；
+- 将单个文件扩展为多文件修改，绑定一个不可变Git提交快照；
+- 将固定算术测试扩展为独立测试框架，记录测试版本、退出码与真实日志；
+- 使用受限进程或沙箱执行未知项目代码，并明确网络、文件和资源授权范围；
+- 将内存操作日志改为持久数据库，模拟进程退出后的恢复；
+- 为并发Agent加入共享黑板版本检查和冲突重新规划；
+- 引入固定难度的代码任务集，分别测量成功率、成本、延迟及错误修改率。
+
+多Agent不应成为第一步。先让一个Agent能够稳定、可验证、可恢复地完成一条任务，再决定哪些环节值得并行。
+
+### 练习与解答
+
+**题一：** 代码能通过Python语法检查，为什么仍不能直接提交？
+
+**解：** 语法正确只说明代码结构可以被解析，不说明实现满足任务条件。原始减法缺陷也能通过语法检查，必须使用独立业务测试。
+
+**题二：** 观察时文件SHA与提交前不一致，为什么不应继续写入？
+
+**解：** 目标已经变化，旧补丁的前提可能失效。直接写入可能覆盖其他执行者的修复，必须重新获取状态再计算。
+
+**题三：** 同一进程的重复调用没有造成二次写入，能否说明系统已经实现崩溃后的恰好一次？
+
+**解：** 不能。内存记录在进程退出后可能丢失，而且还没有覆盖外部系统提交成功但本地确认丢失的情况，需要持久日志与远端幂等或查询协议。
+
+**题四：** 测试Agent自己写入“PASS”文字是否满足独立验收？
+
+**解：** 不满足。实际执行器应运行有明确版本、输入和断言的测试，并保留可信退出状态与结果证据；模型生成的PASS只是未经验证的文本。
+
+### 延伸阅读
+
+- OpenAI Agents SDK Guardrails and human review：https://developers.openai.com/api/docs/guides/agents/guardrails-approvals
+- Python AST模块文档：https://docs.python.org/3/library/ast.html
 
 
 ## 离线代码实验：从A*到故障恢复
