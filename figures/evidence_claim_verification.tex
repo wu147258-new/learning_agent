@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,rounded corners,fill=blue!6,minimum height=12mm,minimum width=27mm,align=center}]
+\node[b](claim) at (0,0){待证断言\\Claim};
+\node[b](retrieve) at (4,0){证据片段\\版本、行区间};
+\node[b](verify) at (8,0){蕴含核查\\支持/反驳/不足};
+\node[b](output) at (12,0){带引用回答\\或拒绝断言};
+\draw[->,thick,deepblue](claim)--(retrieve);\draw[->,thick,deepblue](retrieve)--(verify);\draw[->,thick,deepblue](verify)--(output);
+\node[below=9mm of verify,align=center,text=accent]{摘要一致$\not\Rightarrow$事实证成；数据源授权和版本必须同时满足};
+\end{tikzpicture}
