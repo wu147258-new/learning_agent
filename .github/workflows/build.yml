@@ -42,6 +42,7 @@ jobs:
           python3 examples/inference_quantization_lab.py
           python3 examples/speculative_decoding_lab.py
           python3 examples/agent_runtime_recovery.py
+          python3 examples/durable_agent_queue_lab.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
           python3 examples/beginner_tool_agent.py run
