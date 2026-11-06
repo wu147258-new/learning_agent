@@ -1,0 +1,14 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ n/.style={draw=deepblue,rounded corners,fill=blue!6,minimum width=27mm,minimum height=11mm,align=center}]
+\node[n](new) at (0,0){待执行\\PENDING};
+\node[n](lease) at (3.6,0){租约持有\\RUNNING};
+\node[n](done) at (7.2,1.3){完成\\SUCCESS};
+\node[n](unknown) at (7.2,-1.3){结果待查\\UNKNOWN};
+\node[n](reconcile) at (11,-1.3){查询远端\\RECONCILE};
+\draw[->,thick,deepblue](new)--(lease);
+\draw[->,thick,deepblue](lease)--(done);
+\draw[->,thick,accent](lease)--(unknown);
+\draw[->,thick,accent](unknown)--(reconcile);
+\draw[->,thick,deepblue](reconcile) |- (done);
+\node[below=13mm of lease,align=center,text=accent]{本地事务与远程调用无法自动组成同一个原子事务};
+\end{tikzpicture}
