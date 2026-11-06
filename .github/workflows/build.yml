@@ -50,6 +50,7 @@ jobs:
           python3 examples/hybrid_retrieval_acl_lab.py
           python3 examples/agent_trace_evaluation_lab.py
           python3 examples/code_audit_agent_lab.py
+          python3 examples/multiagent_dag_schedule_lab.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
           python3 examples/beginner_tool_agent.py run
