@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ box/.style={draw=deepblue,rounded corners,fill=blue!5,align=center,minimum width=25mm,minimum height=12mm},arr/.style={->,thick,deepblue}]
+\node[box] (data) at (0,0) {全局批次\\$B=mb$};
+\node[box] (w0) at (4,1.4) {设备0\\局部梯度$g_0$};
+\node[box] (w1) at (4,-1.4) {设备1\\局部梯度$g_1$};
+\node[box] (sum) at (8,0) {All-Reduce\\$g=(g_0+g_1)/2$};
+\node[box] (opt) at (12,0) {优化器更新\\相同参数副本};
+\draw[arr] (data.east)--(w0.west); \draw[arr] (data.east)--(w1.west);
+\draw[arr] (w0.east)--(sum.west); \draw[arr] (w1.east)--(sum.west);
+\draw[arr] (sum)--(opt);
+\node[below=10mm of sum,align=center,text=accent]{通信同步的是梯度，不是各设备猜测的模型结论};
+\end{tikzpicture}
