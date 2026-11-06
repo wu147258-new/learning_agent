@@ -47,6 +47,9 @@ jobs:
           python3 examples/sft_data_loss_pipeline.py
           python3 examples/dpo_gradient_oracle.py
           python3 examples/protocol_version_boundaries.py
+          python3 examples/hybrid_retrieval_acl_lab.py
+          python3 examples/agent_trace_evaluation_lab.py
+          python3 examples/code_audit_agent_lab.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
           python3 examples/beginner_tool_agent.py run
