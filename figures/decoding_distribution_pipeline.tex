@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,rounded corners,fill=blue!5,minimum width=28mm,minimum height=12mm,align=center}]
+\node[b] (logit) at (0,0) {Logits\\$z\in\mathbb R^V$};
+\node[b] (temp) at (3.7,0) {Temperature\\$z/T$};
+\node[b] (filter) at (7.4,0) {Top-$k$/Top-$p$\\筛选候选};
+\node[b] (sample) at (11.1,0) {归一化采样\\下一个Token};
+\draw[->,thick,deepblue](logit)--(temp);
+\draw[->,thick,deepblue](temp)--(filter);
+\draw[->,thick,deepblue](filter)--(sample);
+\node[below=9mm of filter,align=center,text=accent] {解码规则改变输出分布；生成多样性不等于事实正确性};
+\end{tikzpicture}
