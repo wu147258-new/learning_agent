@@ -1,0 +1,15 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=24mm,minimum height=10mm}]
+\node[b](host) at (0,1.7) {Host / Client};
+\node[b](gateway) at (3.4,1.7) {授权网关};
+\node[b](mcp) at (6.8,1.7) {MCP工具服务};
+\node[b](data) at (9.9,1.7) {业务资源};
+\draw[->,thick,deepblue](host)--node[above,font=\scriptsize]{版本+操作}(gateway);
+\draw[->,thick,deepblue](gateway)--node[above,font=\scriptsize]{身份+Scope}(mcp);
+\draw[->,thick,deepblue](mcp)--node[above,font=\scriptsize]{租户过滤}(data);
+\node[b](agent1) at (1.7,-1.0) {委托方Agent};
+\node[b](a2a) at (5.2,-1.0) {A2A Task};
+\node[b](agent2) at (8.7,-1.0) {受托方Agent};
+\draw[<->,thick,accent](agent1)--node[above,font=\scriptsize]{发现/委派}(a2a);
+\draw[<->,thick,accent](a2a)--node[above,font=\scriptsize]{状态/工件}(agent2);
+\node[font=\scriptsize,accent] at (5.2,-2.0) {协议完成 $\not\Rightarrow$ 工件可信 $\not\Rightarrow$ 业务验收通过};
+\end{tikzpicture}
