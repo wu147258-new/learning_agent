@@ -1,0 +1,16 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=23mm,minimum height=9mm}]
+\node[b](source) at (0,1) {源码快照};
+\node[b](ast) at (2.8,1) {AST规则};
+\node[b](model) at (5.6,1) {漏洞假设};
+\node[b](patch) at (8.4,1) {候选补丁};
+\node[b](test) at (8.4,-1) {独立测试};
+\node[b](approval) at (5.6,-1) {绑定审批};
+\node[b](commit) at (2.8,-1) {版本再检查};
+\draw[->,thick,deepblue](source)--(ast);
+\draw[->,thick,deepblue](ast)--(model);
+\draw[->,thick,deepblue](model)--(patch);
+\draw[->,thick,accent](patch)--(test);
+\draw[->,thick,accent](test)--(approval);
+\draw[->,thick,accent](approval)--(commit);
+\node[font=\scriptsize,accent] at (5.5,-2) {源摘要变化、测试失败或越权，均阻断提交};
+\end{tikzpicture}

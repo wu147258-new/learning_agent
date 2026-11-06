@@ -1,0 +1,16 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=22mm,minimum height=10mm}]
+\node[b](source) at (0,2) {原始样本};
+\node[b](license) at (2.7,2) {许可+租户};
+\node[b](hash) at (5.4,2) {去重+群组};
+\node[b](split) at (8.1,2) {训练/测试};
+\draw[->,thick,deepblue](source)--(license);
+\draw[->,thick,deepblue](license)--(hash);
+\draw[->,thick,deepblue](hash)--(split);
+\node[b](tokens) at (1.4,-0.4) {对话Token};
+\node[b](mask) at (4.4,-0.4) {目标Loss Mask};
+\node[b](att) at (7.4,-0.4) {分段Attention};
+\draw[->,thick,deepblue](split.south) to[out=-90,in=35] (tokens.east);
+\draw[->,thick,deepblue](tokens)--(mask);
+\draw[->,thick,deepblue](mask)--(att);
+\node[font=\scriptsize,accent] at (4.5,-1.4) {两个独立的掩码：参与损失的Token $\neq$ 可见的上下文Token};
+\end{tikzpicture}

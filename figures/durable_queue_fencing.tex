@@ -1,0 +1,16 @@
+\begin{tikzpicture}[>=Stealth,font=\small,st/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=21mm,minimum height=9mm}]
+\node[st](pending) at (0,1.7) {PENDING};
+\node[st](a) at (3,1.7) {A: fence=1};
+\node[st](b) at (6.2,1.7) {B: fence=2};
+\node[st](done) at (9.5,1.7) {DONE};
+\draw[->,thick,deepblue](pending)--node[above,font=\scriptsize]{认领}(a);
+\draw[->,thick,accent](a)--node[above,font=\scriptsize]{租约过期}(b);
+\draw[->,thick,deepblue](b)--node[above,font=\scriptsize]{原子提交}(done);
+\draw[->,dashed,accent] (a.south) to[out=-70,in=-110] node[below,font=\scriptsize]{旧令牌不能覆盖最新结果} (b.south);
+\node[st](state) at (5.1,-0.6) {任务状态 + 事件};
+\node[st](outbox) at (9.5,-0.6) {Outbox记录};
+\draw[<->,very thick,deepblue](state)--node[above,font=\scriptsize]{同一DB事务}(outbox);
+\node[st](send) at (9.5,-2.0) {外部投递};
+\draw[->,thick,deepblue](outbox)--node[right,font=\scriptsize]{至少一次}(send);
+\node[font=\scriptsize,text=accent] at (4.7,-2.1) {下游必须独立执行事件ID去重};
+\end{tikzpicture}

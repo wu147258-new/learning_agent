@@ -1,0 +1,15 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=23mm,minimum height=10mm}]
+\node[b](task) at (0,0) {任务+轨迹};
+\node[b](result) at (2.8,0) {结果正确};
+\node[b](auth) at (5.6,0) {授权+审批};
+\node[b](ver) at (8.4,0) {版本一致};
+\node[b](cost) at (11.2,0) {成本可接受};
+\draw[->,thick,deepblue](task)--(result);
+\draw[->,thick,deepblue](result)--(auth);
+\draw[->,thick,deepblue](auth)--(ver);
+\draw[->,thick,deepblue](ver)--(cost);
+\foreach \x in {2.8,5.6,8.4,11.2}{
+ \draw[->,accent,thick] (\x,-0.5)--(\x,-1.1);
+}
+\node[font=\scriptsize,accent] at (7.0,-1.6) {任何安全门失败都不能由其他分数弥补};
+\end{tikzpicture}

@@ -1,0 +1,18 @@
+\begin{tikzpicture}[>=Stealth,font=\small,axis/.style={->,thick},stage/.style={rounded corners,draw=deepblue,minimum height=9mm,minimum width=28mm,fill=softgray}]
+\draw[axis] (0,0)--(5.4,0) node[right]{算术强度 $I$};
+\draw[axis] (0,0)--(0,3.4) node[above]{吞吐上界 $P$};
+\draw[very thick,accent] (0,0) -- (2.5,2.7) -- (5.1,2.7);
+\draw[dashed,deepblue] (0,2.7) -- (5.1,2.7);
+\node[font=\scriptsize,accent,rotate=46] at (1.45,1.9) {$B_{\max}I$};
+\node[font=\scriptsize] at (4,3.0) {$P_{\max}$};
+\node[font=\scriptsize] at (1.15,0.45) {带宽约束};
+\node[font=\scriptsize] at (4.1,2.25) {计算约束};
+\node[stage] (q) at (6.7,2.5) {排队};
+\node[stage] (pre) at (6.7,1.2) {Prefill};
+\node[stage] (dec) at (9.9,1.2) {Decode循环};
+\node[stage] (resp) at (9.9,2.5) {响应};
+\draw[->,thick,deepblue] (q)--(pre);
+\draw[->,thick,deepblue] (pre)--(dec);
+\draw[->,thick,deepblue] (dec)--(resp);
+\node[font=\scriptsize,align=center] at (8.25,0.1) {硬件上界约束单算子；\\服务时延还含队列、调度与网络};
+\end{tikzpicture}

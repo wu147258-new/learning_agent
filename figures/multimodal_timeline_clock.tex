@@ -1,0 +1,13 @@
+\begin{tikzpicture}[>=Stealth,font=\small]
+\foreach \y/\name in {2/{视频},1/{音频},0/{门禁日志}}{
+ \draw[->,thick,deepblue] (0,\y)--(10,\y) node[right]{\name};
+}
+\draw[fill=softgray,draw=deepblue] (2,1.85) rectangle (3.1,2.15);
+\draw[fill=softgray,draw=deepblue] (3.5,0.85) rectangle (4.5,1.15);
+\draw[fill=softgray,draw=deepblue] (2.2,-0.15) rectangle (3.4,0.15);
+\draw[->,dashed,accent] (2.5,2.3)--(4.0,3.1);
+\draw[->,dashed,accent] (4.0,1.3)--(4.0,3.1);
+\draw[->,dashed,accent] (2.8,0.3)--(4.0,3.1);
+\node[draw=accent,rounded corners,fill=palegreen] at (6.2,3.1) {公共事故时间轴};
+\node[font=\scriptsize,accent] at (5,-0.9) {先按设备校准偏移与漂移，再进行事件区间关联};
+\end{tikzpicture}

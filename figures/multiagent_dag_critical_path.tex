@@ -1,0 +1,15 @@
+\begin{tikzpicture}[>=Stealth,font=\small,task/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=23mm,minimum height=9mm}]
+\node[task](read) at (0,0) {研究 3};
+\node[task](design) at (2.9,0) {架构 4};
+\node[task](code) at (5.8,1.1) {编码 5};
+\node[task](test) at (8.7,1.1) {测试 2};
+\node[task](security) at (5.8,-1.1) {安全复核 3};
+\node[task](release) at (11.5,0) {发布 1};
+\draw[->,very thick,accent](read)--(design);
+\draw[->,very thick,accent](design)--(code);
+\draw[->,very thick,accent](code)--(test);
+\draw[->,very thick,accent](test)--(release);
+\draw[->,thick,deepblue](design)--(security);
+\draw[->,thick,deepblue](security)--(release);
+\node[font=\scriptsize,text=accent] at (6.6,-2.1) {红色路径：总耗时 $3+4+5+2+1=15$；并行不消除前置依赖};
+\end{tikzpicture}

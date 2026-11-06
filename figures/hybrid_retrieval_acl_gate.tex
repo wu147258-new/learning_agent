@@ -1,0 +1,15 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=23mm,minimum height=10mm}]
+\node[b](user) at (0,1.2) {用户/查询};
+\node[b](acl) at (3,1.2) {租户+权限};
+\node[b](bm) at (6.0,2.2) {BM25};
+\node[b](dense) at (6.0,0.2) {向量检索};
+\node[b](fuse) at (9.0,1.2) {融合/重排};
+\node[b](evidence) at (9.0,-1.4) {证据哈希};
+\draw[->,thick,deepblue](user)--(acl);
+\draw[->,thick,deepblue](acl) to[out=30,in=180](bm);
+\draw[->,thick,deepblue](acl) to[out=-30,in=180](dense);
+\draw[->,thick,deepblue](bm) to[out=0,in=145](fuse);
+\draw[->,thick,deepblue](dense) to[out=0,in=-145](fuse);
+\draw[->,thick,accent](fuse)--(evidence);
+\node[font=\scriptsize,text=accent] at (3.5,-1.5) {任何未授权记录不得进入后续排序与引用};
+\end{tikzpicture}

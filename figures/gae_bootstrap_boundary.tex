@@ -1,0 +1,19 @@
+\begin{tikzpicture}[>=Stealth,font=\small,s/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=15mm,minimum height=9mm}]
+\node[s](s0) at (0,1.6) {$s_t$};
+\node[s](s1) at (2.8,1.6) {$s_{t+1}$};
+\node[s](s2) at (5.6,1.6) {$s_{t+2}$};
+\node[s](s3) at (8.4,1.6) {终止};
+\draw[->,thick,deepblue](s0)--node[above]{$r_{t+1}$}(s1);
+\draw[->,thick,deepblue](s1)--node[above]{$r_{t+2}$}(s2);
+\draw[->,thick,deepblue](s2)--node[above]{$r_{t+3}$}(s3);
+\node[font=\scriptsize,accent] at (8.4,0.9) {终止价值 $=0$};
+\node[s](b0) at (0,-1.1) {$s_t$};
+\node[s](b1) at (2.8,-1.1) {$s_{t+1}$};
+\node[s](b2) at (5.6,-1.1) {$s_{t+2}$};
+\node[s](b3) at (8.4,-1.1) {截断边界};
+\draw[->,thick,deepblue](b0)--node[above]{$r_{t+1}$}(b1);
+\draw[->,thick,deepblue](b1)--node[above]{$r_{t+2}$}(b2);
+\draw[->,thick,deepblue](b2)--node[above]{$r_{t+3}$}(b3);
+\draw[->,dashed,thick,accent](b3.east)--++(1.0,0) node[right,font=\scriptsize]{$V(s_{t+3})$};
+\node[font=\scriptsize,accent] at (4.5,-2.2) {截断后环境可继续，价值自举与跨轨迹优势传播需要分别判定};
+\end{tikzpicture}

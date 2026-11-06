@@ -1,0 +1,15 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=25mm,minimum height=9mm}]
+\node[b](prompt) at (0,1) {同一提示 $x$};
+\node[b](win) at (3.4,2.1) {优选 $y_w$};
+\node[b](lose) at (3.4,-0.2) {未选 $y_l$};
+\node[b](policy) at (6.8,2.1) {$\log\pi_\theta$};
+\node[b](reference) at (6.8,-0.2) {$\log\pi_{\rm ref}$};
+\draw[->,thick,deepblue](prompt) to[out=35,in=180] (win);
+\draw[->,thick,deepblue](prompt) to[out=-35,in=180] (lose);
+\draw[->,thick,deepblue](win)--(policy);
+\draw[->,thick,deepblue](lose)--(reference);
+\node[b,fill=palegreen,minimum width=36mm](diff) at (10.0,1.0) {$\Delta=\Delta_w-\Delta_l$};
+\draw[->,thick,accent](policy)--(diff);
+\draw[->,thick,accent](reference)--(diff);
+\node[font=\scriptsize,accent] at (6.6,-1.4) {比较相对对数概率，而非绝对奖励分值};
+\end{tikzpicture}
