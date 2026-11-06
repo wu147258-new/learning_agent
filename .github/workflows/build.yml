@@ -50,6 +50,25 @@ jobs:
           python3 examples/decoding_probability_lab.py
           python3 examples/gae_trajectory_lab.py
           python3 examples/offpolicy_importance_lab.py
+          python3 examples/mcts_budget_lab.py
+          python3 examples/tool_executor_contract_lab.py
+          python3 examples/sqlite_agent_recovery_lab.py
+          python3 examples/multiagent_schedule_lab.py
+          python3 examples/vector_retrieval_lab.py
+          python3 examples/evidence_cover_lab.py
+          python3 examples/agent_injection_boundary_lab.py
+          python3 examples/paired_eval_lab.py
+          python3 examples/memory_lifecycle_lab.py
+          python3 examples/context_packing_opt_lab.py
+          python3 examples/kv_cache_scheduler_lab.py
+          python3 examples/audio_time_lab.py
+          python3 examples/agent_queue_lab.py
+          python3 examples/code_agent_acceptance_lab.py
+          python3 examples/code_audit_dataflow_lab.py
+          python3 examples/browser_agent_lab.py
+          python3 examples/property_testing_lab.py
+          python3 examples/dpo_probability_lab.py
+          python3 examples/lora_linear_lab.py
           python3 examples/agent_runtime_recovery.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
