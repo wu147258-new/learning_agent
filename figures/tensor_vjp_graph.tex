@@ -1,0 +1,20 @@
+\begin{tikzpicture}[>=Stealth, every node/.style={font=\small},n/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=18mm,minimum height=9mm},g/.style={draw=accent,rounded corners,fill=paleamber,minimum width=17mm,minimum height=9mm}]
+\node[n] (x) at (0,0) {$a,b$};
+\node[n] (u) at (2.7,0) {$u=ab$};
+\node[n] (v) at (5.4,0) {$v=u+c$};
+\node[n] (z) at (8.1,0) {$z=v^2$};
+\node[n] (c) at (5.4,1.6) {$c$};
+\draw[->,thick,deepblue] (x) -- (u);
+\draw[->,thick,deepblue] (u) -- (v);
+\draw[->,thick,deepblue] (c) -- (v);
+\draw[->,thick,deepblue] (v) -- (z);
+\node[g] (ga) at (0,-2) {$2vb,\ 2va$};
+\node[g] (gu) at (2.7,-2) {$2v$};
+\node[g] (gv) at (5.4,-2) {$2v$};
+\node[g] (gz) at (8.1,-2) {$1$};
+\draw[<-,very thick,accent] (ga) -- node[above,font=\scriptsize] {局部乘法} (gu);
+\draw[<-,very thick,accent] (gu) -- (gv);
+\draw[<-,very thick,accent] (gv) -- (gz);
+\node[font=\scriptsize,text=deepblue] at (4,2.4) {上排：前向值传播};
+\node[font=\scriptsize,text=accent] at (4,-2.9) {下排：反向梯度传播；分叉节点按路径累加};
+\end{tikzpicture}
