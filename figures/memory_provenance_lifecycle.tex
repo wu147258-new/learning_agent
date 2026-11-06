@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum height=12mm,minimum width=28mm,align=center}]
+\node[b](obs) at (0,0){对话与工具结果\\候选记录};
+\node[b](extract) at (4,0){结构化抽取\\来源和时间};
+\node[b](store) at (8,0){授权存储\\版本和撤销};
+\node[b](ret) at (12,0){查询时再过滤\\时效与租户};
+\foreach \x/\y in {obs/extract,extract/store,store/ret}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of store,align=center,text=accent]{检索得分不能覆盖显式的撤销与访问控制};
+\end{tikzpicture}
