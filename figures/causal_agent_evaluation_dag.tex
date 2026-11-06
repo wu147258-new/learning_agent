@@ -1,0 +1,13 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ n/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=24mm,minimum height=11mm,align=center}]
+\node[n](x) at (0,1.5){任务难度$X$};
+\node[n](a) at (4,1.5){Agent选择$A$};
+\node[n](y) at (8,1.5){结果$Y$};
+\node[n](u) at (4,-1){环境/模型版本$U$};
+\draw[->,thick,deepblue](x)--(a);
+\draw[->,thick,deepblue](x) to[bend left=15] (y);
+\draw[->,thick,deepblue](a)--(y);
+\draw[->,thick,accent](u)--(a);
+\draw[->,thick,accent](u)--(y);
+\node[below=9mm of u,align=center,text=accent]{观察到$P(Y\mid A)$不等于干预后的$P(Y\mid do(A))$};
+\end{tikzpicture}
