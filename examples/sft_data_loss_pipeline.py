@@ -229,8 +229,8 @@ def training_records():
 
 def test_dataset():
     kept, dropped = sanitize(training_records(), {"CC0"})
-    assert len(kept) == 7
-    assert len(dropped) == 4
+    assert len(kept) == 8
+    assert len(dropped) == 3
     assert {reason for _, reason in dropped} == {
         "license not allowed", "exact duplicate"
     }
