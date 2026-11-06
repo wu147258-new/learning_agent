@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\small,b/.style={draw=deepblue,rounded corners,fill=softgray,minimum width=25mm,minimum height=10mm}]
+\node[b](prior) at (0,0) {先验 $b(s)$};
+\node[b](test) at (3.2,0) {诊断 $P(o\mid s)$};
+\node[b](post) at (6.4,0) {后验 $b(s\mid o)$};
+\node[b](risk) at (9.6,0) {行动风险};
+\draw[->,thick,deepblue](prior)--(test);
+\draw[->,thick,deepblue](test)--node[above,font=\scriptsize] {观察 $o$} (post);
+\draw[->,thick,deepblue](post)--(risk);
+\draw[->,dashed,accent](risk.south) to[out=-135,in=-45] node[below,font=\scriptsize]{风险与成本决定是否再次诊断} (prior.south);
+\node[font=\scriptsize,accent] at (4.8,-1.6) {不确定性降低不必然意味着业务期望损失降低};
+\end{tikzpicture}
