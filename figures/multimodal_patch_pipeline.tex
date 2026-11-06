@@ -1,0 +1,22 @@
+\begin{tikzpicture}[font=\sffamily\scriptsize,>=Stealth,
+  nodebox/.style={draw=deepblue,fill=blue!6,rounded corners=2pt,minimum height=11mm,minimum width=25mm,align=center},
+  vision/.style={draw=green!45!black,fill=green!8,rounded corners=2pt,minimum height=11mm,minimum width=25mm,align=center},
+  merge/.style={draw=accent,fill=orange!8,rounded corners=2pt,minimum height=11mm,minimum width=26mm,align=center},
+  arr/.style={->,thick,deepblue}]
+\node[nodebox] (image) at (0,1.15) {输入图像\\$3\times H\times W$};
+\node[nodebox] (patch) at (3.4,1.15) {分割为Patch\\$N=HW/P^2$};
+\node[vision] (encoder) at (6.8,1.15) {视觉编码器\\多层特征};
+\node[merge] (project) at (10.2,1.15) {视觉Merger\\映射至$d_{\ell}$};
+\draw[arr] (image.east)--(patch.west);
+\draw[arr] (patch.east)--(encoder.west);
+\draw[arr] (encoder.east)--(project.west);
+\node[nodebox] (text) at (3.4,-1.0) {文本输入\\Tokenizer};
+\node[vision] (tokens) at (6.8,-1.0) {文本Embedding\\$e_1,\ldots,e_n$};
+\node[merge] (fuse) at (10.2,-1.0) {融合后的序列\\位置与注意力掩码};
+\draw[arr] (text.east)--(tokens.west);
+\draw[arr] (tokens.east)--(fuse.west);
+\draw[arr] (project.south)--(fuse.north);
+\node[nodebox] (decoder) at (10.2,-3.1) {生成式骨干\\Transformer / MoE};
+\draw[arr] (fuse.south)--(decoder.north);
+\node[anchor=north west,align=left,text=deepblue] at (-1.7,-3.9) {注意：Patch/合并方式与视觉编码器的具体实现随模型而异；此图说明通用计算链，不是某一模型的完整源码。};
+\end{tikzpicture}

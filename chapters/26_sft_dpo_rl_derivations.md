@@ -14,17 +14,17 @@
 
 设输入为 $x$、输出序列为 $y$，模型定义：
 
-$$
+\begin{equation*}
 \pi_\theta(y\mid x)
 =P_\theta(Y=y\mid X=x),\qquad \sum_y\pi_\theta(y\mid x)=1.
-$$
+\end{equation*}
 
 在离散序列模型里，$y=(y_1,\ldots,y_T)$ 的概率由逐Token条件概率相乘：
 
-$$
+\begin{equation*}
 \log\pi_\theta(y\mid x)
 =\sum_{t=1}^T\log p_\theta(y_t\mid x,y_{<t}).
-$$
+\end{equation*}
 
 实践中还需约定结束Token、截断和Padding。不同长度序列如果把Token平均对数概率与总对数概率混为一谈，将得到不同的优化目标。
 
@@ -38,18 +38,18 @@ $$D_{\mathrm{SFT}}=\{(x_i,y_i)\}_{i=1}^N.$$
 
 在样本按训练协议抽取的条件下，最大化答案条件似然：
 
-$$
+\begin{equation*}
 \max_\theta \prod_i\pi_\theta(y_i\mid x_i).
-$$
+\end{equation*}
 
 对数将乘积转成求和。训练时通常最小化负对数似然：
 
-$$
+\begin{equation*}
 \boxed{
 L_{\mathrm{SFT}}(\theta)=
 -\frac1N\sum_{i=1}^{N}\log\pi_\theta(y_i\mid x_i).
 }
-$$
+\end{equation*}
 
 如果是批量逐Token交叉熵，应明确分母是样本数、有效Token数，还是逐样本归一化后的均值。不同方式改变长答案与短答案的相对权重。
 
@@ -63,9 +63,9 @@ $$
 
 在一个固定状态下，专家做了10次选择，其中行动0出现8次、行动1出现2次。令 $\pi(0)=p$、$\pi(1)=1-p$：
 
-$$
+\begin{equation*}
 L(p)=-\frac1{10}[8\log p+2\log(1-p)].
-$$
+\end{equation*}
 
 求导：
 
@@ -97,21 +97,21 @@ DPO将偏好数据连接到一个特定的带KL约束的奖励优化问题。
 
 对于固定输入 $x$，设参考条件分布为 $\pi_{\rm ref}(y\mid x)$，奖励为 $r(x,y)$，约束系数为 $\beta>0$。目标：
 
-$$
+\begin{equation*}
 \max_{\pi}
 \left[
 \sum_y\pi(y\mid x)r(x,y)
 -\beta D_{\rm KL}(\pi(\cdot\mid x)\|\pi_{\rm ref}(\cdot\mid x))
 \right].
-$$
+\end{equation*}
 
 其中：
 
-$$
+\begin{equation*}
 D_{\rm KL}(\pi\|\pi_{\rm ref})
 =\sum_y\pi(y\mid x)\log\frac{\pi(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}.
-$$
+\end{equation*}
 
 这里要求参考分布对所考虑响应具有正概率，且归一化常数有限。KL项限制候选分布偏离参考分布过大。它不是硬性地禁止任何分布变化，而是将变化成本加入优化目标。
 
@@ -119,33 +119,33 @@ $$
 
 引入归一化约束 $\sum_y\pi(y\mid x)=1$ 的乘子 $\lambda$。对每个 $\pi(y\mid x)$ 求导：
 
-$$
+\begin{equation*}
 r(x,y)-\beta\left[\log\frac{\pi(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}+1\right]+\lambda=0.
-$$
+\end{equation*}
 
 整理可得：
 
-$$
+\begin{equation*}
 \boxed{
 \pi^*(y\mid x)
 =\frac{\pi_{\rm ref}(y\mid x)\exp(r(x,y)/\beta)}{Z(x)},
 }
-$$
+\end{equation*}
 
 其中：
 
-$$
+\begin{equation*}
 Z(x)=\sum_y\pi_{\rm ref}(y\mid x)\exp(r(x,y)/\beta).
-$$
+\end{equation*}
 
 反解奖励：
 
-$$
+\begin{equation*}
 r(x,y)=\beta\log\frac{\pi^*(y\mid x)}
 {\pi_{\rm ref}(y\mid x)}
 +\beta\log Z(x).
-$$
+\end{equation*}
 
 对于同一个输入 $x$ 的两个答案，最后一项相同，做差时会抵消。
 
@@ -153,37 +153,37 @@ $$
 
 采用Bradley–Terry型成对偏好概率模型：
 
-$$
+\begin{equation*}
 P(y^+\succ y^-\mid x)
 =\sigma(r(x,y^+)-r(x,y^-)),
-$$
+\end{equation*}
 
 其中 $\sigma(z)=1/(1+e^{-z})$。令：
 
-$$
+\begin{equation*}
 d_\theta=
 \left[\log\pi_\theta(y^+\mid x)
 -\log\pi_\theta(y^-\mid x)\right]
 -
 \left[\log\pi_{\rm ref}(y^+\mid x)
 -\log\pi_{\rm ref}(y^-\mid x)\right].
-$$
+\end{equation*}
 
 代入可得：
 
-$$
+\begin{equation*}
 P_\theta(y^+\succ y^-\mid x)=\sigma(\beta d_\theta).
-$$
+\end{equation*}
 
 因此最大化偏好比较的条件似然，等价于最小化：
 
-$$
+\begin{equation*}
 \boxed{
 L_{\rm DPO}(\theta)
 =-\mathbb E_{(x,y^+,y^-)\sim D}
 \log\sigma(\beta d_\theta).
 }
-$$
+\end{equation*}
 
 \begin{figure}[htbp]
 \centering
@@ -195,10 +195,10 @@ $$
 
 对单个比较样本：
 
-$$
+\begin{equation*}
 \frac{\partial L_{\rm DPO}}{\partial d_\theta}
 =-\beta\,\sigma(-\beta d_\theta).
-$$
+\end{equation*}
 
 若偏好的回答相对于参考模型不够占优，$d_\theta$ 较小，推动其相对概率增加的梯度较大；若已经十分占优，梯度逐步变小。
 
@@ -218,10 +218,10 @@ DPO能够在离线偏好数据上更新模型，而不必在这一阶段在线�
 
 目标定义为：
 
-$$
+\begin{equation*}
 J(\theta)=\mathbb E_{A\sim\pi_\theta}[r(A)]
 =\sum_a\pi_\theta(a\mid s)r(a).
-$$
+\end{equation*}
 
 若两行动概率都为0.5，当前期望收益为2。提高高收益行动1的概率，能提高理论期望，但要考虑行动被允许、奖励定义正确等前提。
 
@@ -229,14 +229,14 @@ $$
 
 只要 $\pi_\theta(a)>0$ 且可微：
 
-$$
+\begin{equation*}
 \nabla_\theta\pi_\theta(a)
 =\pi_\theta(a)\nabla_\theta\log\pi_\theta(a).
-$$
+\end{equation*}
 
 代入期望的梯度：
 
-$$
+\begin{equation*}
 \begin{aligned}
 \nabla_\theta J
 &=\sum_a\nabla_\theta\pi_\theta(a)r(a)\\
@@ -244,7 +244,7 @@ $$
 &=\mathbb E_{A\sim\pi_\theta}
 [r(A)\nabla_\theta\log\pi_\theta(A)].
 \end{aligned}
-$$
+\end{equation*}
 
 这个恒等式是REINFORCE类方法的核心，但在采样数量有限时，梯度估计可能具有很高的方差。
 
@@ -252,20 +252,20 @@ $$
 
 若基线 $b(s)$ 对给定状态不依赖采样行动：
 
-$$
+\begin{equation*}
 \begin{aligned}
 \mathbb E[b(s)\nabla_\theta\log\pi_\theta(A\mid s)]
 &=b(s)\sum_a\nabla_\theta\pi_\theta(a\mid s)\\
 &=b(s)\nabla_\theta1=0.
 \end{aligned}
-$$
+\end{equation*}
 
 因此：
 
-$$
+\begin{equation*}
 \nabla_\theta J
 =\mathbb E[(r(A)-b(s))\nabla_\theta\log\pi_\theta(A\mid s)].
-$$
+\end{equation*}
 
 合适的基线可能降低采样方差，却不能任意取一个与行动相关的数仍套用该结论。若基线由同一网络产生，还需要对相应的梯度路径作正确处理。
 
@@ -281,9 +281,9 @@ $$P(S_{t+1}=s'\mid S_t=s,A_t=a)$$
 
 若每步奖励为 $R_t$，折扣因子 $0\le\gamma<1$，累计收益：
 
-$$
+\begin{equation*}
 G_t=\sum_{k=0}^{\infty}\gamma^kR_{t+k}.
-$$
+\end{equation*}
 
 有限任务则将求和限制在终止时刻，终止后的奖励视具体定义处理。
 
@@ -295,11 +295,11 @@ $$V^\pi(s)=\mathbb E_\pi[G_t\mid S_t=s].$$
 
 在马尔可夫假设和适当可积条件下：
 
-$$
+\begin{equation*}
 V^\pi(s)=\sum_a\pi(a\mid s)
 \sum_{s'}P(s'\mid s,a)
 \left[r(s,a,s')+\gamma V^\pi(s')\right].
-$$
+\end{equation*}
 
 这是Bellman期望方程。它来自全期望公式以及回报的递推定义，而不是只需记忆的行业术语。
 
@@ -307,19 +307,19 @@ $$
 
 若环境转移分布不依赖待优化参数 $\theta$，轨迹 $\tau=(S_0,A_0,\ldots,S_T)$ 的联合概率可分解：
 
-$$
+\begin{equation*}
 P_\theta(\tau)
 =P(S_0)\prod_{t=0}^{T-1}
 \pi_\theta(A_t\mid S_t)\,
 P(S_{t+1}\mid S_t,A_t).
-$$
+\end{equation*}
 
 于是：
 
-$$
+\begin{equation*}
 \nabla_\theta\log P_\theta(\tau)
 =\sum_{t=0}^{T-1}\nabla_\theta\log\pi_\theta(A_t\mid S_t).
-$$
+\end{equation*}
 
 可将累计收益乘上轨迹对数梯度，构造对 $\nabla_\theta\mathbb E[G]$ 的采样估计。若环境动力学也依赖 $\theta$，就不能不加说明地忽略它的梯度项。
 
@@ -329,9 +329,9 @@ $$
 
 定义行动条件价值：
 
-$$
+\begin{equation*}
 Q^\pi(s,a)=\mathbb E_\pi[G_t\mid S_t=s,A_t=a].
-$$
+\end{equation*}
 
 优势：
 
@@ -347,10 +347,10 @@ $$\delta_t=R_t+\gamma\widehat V(S_{t+1})-\widehat V(S_t).$$
 
 广义优势估计（GAE）的一种形式为：
 
-$$
+\begin{equation*}
 \widehat A_t=\sum_{\ell=0}^{T-t-1}
 (\gamma\lambda)^\ell\delta_{t+\ell},\qquad0\le\lambda\le1.
-$$
+\end{equation*}
 
 在有限终止轨迹上，应正确处理终止状态的价值和截断（truncation）状态的自举项；把时间限制截断都误当作真实终止，会造成偏差。
 
@@ -358,15 +358,15 @@ $$
 
 设采样时的旧分布为 $\pi_{\rm old}$，需要优化的新分布为 $\pi_\theta$。对采样行动定义：
 
-$$
+\begin{equation*}
 \rho_t(\theta)=
 \frac{\pi_\theta(A_t\mid S_t)}
 {\pi_{\rm old}(A_t\mid S_t)}.
-$$
+\end{equation*}
 
 PPO的一种常见剪切代理目标：
 
-$$
+\begin{equation*}
 \boxed{
 L^{\rm CLIP}(\theta)=
 \mathbb E\left[
@@ -377,7 +377,7 @@ L^{\rm CLIP}(\theta)=
 \right)
 \right].
 }
-$$
+\end{equation*}
 
 优化时最大化此目标。对正优势，过高的比率不会持续得到额外奖励；对负优势，过低的比率也受到剪切限制。剪切机制降低单次更新过大的激励，但**不严格保证KL距离始终不超过固定阈值**，实际仍需要监控KL与奖励、失败率等指标。
 
@@ -395,22 +395,22 @@ DeepSeek-R1论文公开了使用Group Relative Policy Optimization（GRPO）的�
 
 设某个问题 $q$ 有 $G$ 个候选答案，其奖励为：
 
-$$
+\begin{equation*}
 r_1,r_2,\ldots,r_G.
-$$
+\end{equation*}
 
 令组内均值和标准差为：
 
-$$
+\begin{equation*}
 \bar r=\frac1G\sum_{i=1}^G r_i,\qquad
 s_r=\sqrt{\frac1G\sum_{i=1}^G(r_i-\bar r)^2}.
-$$
+\end{equation*}
 
 当 $s_r>0$ 时，可以构造：
 
-$$
+\begin{equation*}
 \boxed{A_i=\frac{r_i-\bar r}{s_r}.}
-$$
+\end{equation*}
 
 该式解释了同一道题中“比其他答案好”与“奖励绝对值高”的区别。组内中心化并不保证奖励本身无偏，也不能修复错误的自动检查器。
 
@@ -418,21 +418,21 @@ $$
 
 假设同一问题采样四条回答，奖励是 $(1,0,1,0)$。则：
 
-$$
+\begin{equation*}
 \bar r=(1+0+1+0)/4=0.5.
-$$
+\end{equation*}
 
 标准差：
 
-$$
+\begin{equation*}
 s_r=\sqrt{[(0.5)^2+(-0.5)^2+(0.5)^2+(-0.5)^2]/4}=0.5.
-$$
+\end{equation*}
 
 因此：
 
-$$
+\begin{equation*}
 (A_1,A_2,A_3,A_4)=(1,-1,1,-1).
-$$
+\end{equation*}
 
 优势为正的样本应提高相对发生概率，为负的样本应降低其相对发生概率，但还需考虑采样时旧模型分布、剪切限制和参考分布正则项。
 
@@ -440,13 +440,13 @@ $$
 
 一个简化的按响应记录的代理目标可写为：
 
-$$
+\begin{equation*}
 J(\theta)=\frac1G\sum_{i=1}^G
 \min\left(
 \rho_i(\theta)A_i,\,
 \operatorname{clip}(\rho_i(\theta),1-\epsilon,1+\epsilon)A_i
 \right),
-$$
+\end{equation*}
 
 其中 $\rho_i(\theta)=\pi_\theta(o_i\mid q)/\pi_{\rm old}(o_i\mid q)$。这用于理解“组内比较 + 受控策略更新”的组合。
 
@@ -545,11 +545,11 @@ GLM-5团队在2026年的公开技术报告中描述了**将轨迹生成与策略
 
 对于满足覆盖条件的离散行动分布：
 
-$$
+\begin{equation*}
 \mathbb E_{A\sim\pi_\theta}[f(A)]
 =\mathbb E_{A\sim\mu}
 \left[\frac{\pi_\theta(A)}{\mu(A)}f(A)\right].
-$$
+\end{equation*}
 
 其中必须要求：若 $\pi_\theta(a)>0$，则 $\mu(a)>0$。这个恒等式解释了离策略重要性权重的数学来源，不代表在任意长轨迹上使用它都数值稳定。
 
@@ -578,6 +578,242 @@ verification_results
 假设有两条轨迹，一条在旧模型版本A生成，另一条在版本B生成，当前训练版本是C。讨论：如何记录每条轨迹的旧动作概率、如何限制高比率导致的方差、哪些失败轨迹不应当悄悄删除？此外，说明为什么异步训练吞吐提高不能单独证明最终任务成功率提高。
 
 参考：GLM-5 Team，*GLM-5: from Vibe Coding to Agentic Engineering*（2026），https://arxiv.org/abs/2602.15763 。
+
+
+## 多步强化学习实战：从一条Agent轨迹到可微训练目标
+
+### 为什么只学习最终答案不够
+
+假设Agent正在处理系统故障，可以选择直接猜测原因，也可以先执行一项检查。检查本身消耗成本，却可能提供能改变后续动作的新信息。
+
+如果仅训练“最终回答正确”，模型未必能学会判断何时值得花成本调用工具。如果简单把调用工具次数当作奖励，模型又可能故意进行多次无用检查。
+
+最自然的表示是一个带观测的多步决策过程：行动不仅影响眼前奖励，也影响后续可获得的信息。
+
+### 建立一个可以枚举全部轨迹的两步环境
+
+设故障原因是一个隐藏比特：
+
+$H\in\{0,1\},\qquad P(H=0)=P(H=1)=1/2.$
+
+第一步Agent有三种行动：
+
+- Inspect：支付0.1单位成本，并观测到真实的隐藏比特；
+- Guess0：不检查，直接猜测0并结束；
+- Guess1：不检查，直接猜测1并结束。
+
+如果先检查，第二步根据观测到的比特选择Guess0或Guess1；猜对得到1，猜错得到0。检查成本在轨迹总奖励中减去。
+
+这不是文本游戏，而是一个简化的部分可观察决策问题：检查行动改变了可获得的信息，因此其收益需要由后续行动的条件期望衡量。
+
+### 从全概率公式算出最优决策倾向
+
+设首步策略为：
+
+\begin{equation*}
+\pi_\theta(I)=p_I,\quad
+\pi_\theta(G_0)=p_0,\quad
+\pi_\theta(G_1)=p_1,\quad
+p_I+p_0+p_1=1.
+\end{equation*}
+
+在检查后，如果隐藏原因是 $h$，令第二步选择正确答案的概率为：
+
+\begin{equation*}
+c_h=P_\theta(A_1=h\mid H=h,\ A_0=I).
+\end{equation*}
+
+那么期望总收益：
+
+\begin{equation*}
+\boxed{
+J(\theta)=
+p_I\left[-0.1+\tfrac12c_0+\tfrac12c_1\right]
++\tfrac12p_0+\tfrac12p_1.
+}
+\end{equation*}
+
+这是从三种首步行动分别取条件期望，再按首步行动概率求和得到的。
+
+若首步三种行动等概率，检查后的两个选择也等概率，则：
+
+\begin{equation*}
+J=\tfrac13(0.4)+\tfrac13(0.5)+\tfrac13(0.5)
+=\tfrac7{15}\approx0.4667.
+\end{equation*}
+
+若Agent学会在首步总是检查，并在第二步总是猜对，则期望收益趋近于 $1-0.1=0.9$。
+
+对照之下，始终不检查并直接猜测任意固定值的期望收益只有0.5。检查是否值得，取决于信息价值与检查成本的比较；若检查成本超过0.5，最佳策略可能改变。
+
+### 轨迹联合概率为何能分解
+
+将环境隐藏比特、首步行动和可选的第二步行动组合为轨迹：
+
+$\tau=(H,A_0,A_1).$
+
+其中未执行Inspect时不包含 $A_1$。其联合概率为：
+
+\begin{equation*}
+P_\theta(\tau)
+=P(H)\pi_\theta(A_0\mid s_0)
+\begin{cases}
+\pi_\theta(A_1\mid H),& A_0=I,\\
+1,& A_0\ne I.
+\end{cases}
+\end{equation*}
+
+因此，对数概率的策略相关部分：
+
+\begin{equation*}
+\log\pi_\theta(\tau)
+=\log\pi_\theta(A_0\mid s_0)
++\mathbf1[A_0=I]\log\pi_\theta(A_1\mid H).
+\end{equation*}
+
+这说明多步Agent并不是只有一次Softmax：每一步实际选择的行动都贡献策略对数概率。为了训练，必须记录实际行动、当时的策略版本和外部观测，而不能仅保留最终回答。
+
+### 由轨迹直接推导策略梯度
+
+设轨迹总奖励为 $R(\tau)$，环境随机变量的采样分布不依赖模型参数。则：
+
+\begin{equation*}
+J(\theta)=\sum_\tau P_\theta(\tau)R(\tau).
+\end{equation*}
+
+使用对数导数恒等式：
+
+\begin{equation*}
+\nabla_\theta J
+=\sum_\tau
+P_\theta(\tau)R(\tau)
+\nabla_\theta\log\pi_\theta(\tau).
+\end{equation*}
+
+可以加上不依赖于当次行动的基线 $b$：
+
+\begin{equation*}
+\boxed{
+\nabla_\theta J
+=
+\mathbb E_{\tau\sim P_\theta}
+[(R(\tau)-b)\nabla_\theta\log\pi_\theta(\tau)].
+}
+\end{equation*}
+
+该表达式解释REINFORCE。若基线依赖当前状态而不依赖当前行动，可逐时间步构造状态基线；但不能随意让基线依赖采样行动而仍假定梯度无偏。
+
+### 枚举全部轨迹验证梯度，而不只看损失下降
+
+本环境有8种带隐藏状态的结果：两个隐藏值分别对应两种直接猜测与两种检查后的猜测。
+
+程序逐一构造每条轨迹的概率和奖励，计算两种梯度：
+
+1. 直接对 $J(\theta)=\sum_\tau P_\theta(\tau)R(\tau)$ 求自动微分；
+2. 构造对数导数形式的期望并求导。
+
+正确实现时，两种梯度应在数值精度内一致。然后从策略实际采样6000条轨迹，使用样本得分函数估计梯度，比较它与精确梯度之间的误差。
+
+这比“训练损失下降”更严格地检查了：采样轨迹是否与策略对应、哪一步产生奖励、隐藏变量是否被正确边缘化，以及基线是否错误地进入了梯度。
+
+\begin{figure}[htbp]
+\centering
+\resizebox{0.94\linewidth}{!}{\input{figures/rl_two_step_rollout.tex}}
+\caption{两步Agent：检查带来信息收益，也产生即时成本；最终奖励取决于完整执行轨迹}
+\end{figure}
+
+## 将PPO从单个动作扩展到多步轨迹
+
+### 为什么需要记录旧概率
+
+假设轨迹是由旧策略 $\mu$ 生成，而当前训练策略是 $\pi_\theta$。只要旧策略对目标策略支持的结果有正概率：
+
+\begin{equation*}
+\mathbb E_{\tau\sim P_\theta}[R(\tau)]
+=
+\mathbb E_{\tau\sim P_\mu}
+\left[
+\frac{P_\theta(\tau)}{P_\mu(\tau)}R(\tau)
+\right].
+\end{equation*}
+
+在环境转移分布不依赖 $\theta$ 且行为与目标使用相同环境机制时，轨迹比率可以化简为各实际行动概率比率的乘积：
+
+\begin{equation*}
+\frac{P_\theta(\tau)}{P_\mu(\tau)}
+=
+\prod_{t\in\tau}
+\frac{\pi_\theta(A_t\mid S_t)}
+{\mu(A_t\mid S_t)}.
+\end{equation*}
+
+这是多步离策略校正的基础。但轨迹越长，多个比率相乘可能造成很大的数值波动，导致采样方差剧增。因此真实长轨迹训练往往需要比率截断、逐步优势、数据新鲜度限制和其他稳定性措施。
+
+### 一个教学用的轨迹级PPO剪切项
+
+设旧轨迹概率为 $P_{\rm old}(\tau)$，新旧比率：
+
+$\rho_\tau(\theta)=P_\theta(\tau)/P_{\rm old}(\tau).$
+
+给定一个固定优势值 $A_\tau$，可定义教学用剪切代理目标：
+
+\begin{equation*}
+L_{\rm toy}(\theta)
+=
+\sum_\tau P_{\rm old}(\tau)
+\min\left(
+\rho_\tau A_\tau,
+\operatorname{clip}(\rho_\tau,1-\epsilon,1+\epsilon)A_\tau
+\right).
+\end{equation*}
+
+这里的计算是**轨迹级**而不是标准PPO常见的逐时间步剪切目标。它用来解释比率与剪切的关系，不能误写成完整的RLHF/PPO算法复现。
+
+真实Agent训练需明确旧策略概率记录、奖励延迟、多步归因、GAE、参考策略KL、行动遮罩和工具调用的时间尺度。
+
+### 强化学习与规划算法为什么需要共享状态契约
+
+规划章节用状态空间和合法行动集合表示执行；强化学习章节又用状态与行动分布表示选择。如果二者使用的状态定义不一致，训练得到的策略可能提出执行器不能识别或不允许的行动。
+
+例如训练时将“提交补丁”视为一个总能成功的动作，生产环境却要求审批、代码版本检查和测试，那么训练回报中就遗漏了实际失败概率及审批成本。
+
+解决方法是让训练环境与生产工具网关共享明确的动作类型与约束，并在训练回放中记录被拒绝、超时和实际结果。不能把Agent自己生成的“测试通过”视为真实环境奖励。
+
+### 跟着代码复现整条训练链
+
+~~~bash
+python examples/multistep_rl_rollout_lab.py
+~~~
+
+实验包括：
+
+1. 构造隐藏原因与三种首步行动；
+2. 枚举八种轨迹，计算期望总收益；
+3. 用自动微分和Score Function独立求导并验证一致；
+4. 从环境真实采样6000条轨迹，估计策略梯度；
+5. 进行一次PPO式剪切更新，比较真实期望收益；
+6. 检验离策略重要性加权恒等式；
+7. 用精确期望目标训练策略，让Agent倾向于先检查再正确处理。
+
+这是有限玩具MDP，不训练语言模型权重。实验的价值在于每个概率、成本、梯度和观测都可以逐项核算。
+
+### 练习与详解
+
+**题一：** 若检查后总能猜对，检查成本从0.1涨到0.6，是否还应总是先检查？
+
+**解：** 检查后期望收益为 $1-0.6=0.4$，直接固定猜测的期望收益为0.5，因此纯收益目标下不应总检查。
+
+**题二：** 为什么轨迹级比率不是简单的最后一个动作概率比率？
+
+**解：** 整条轨迹的概率是各阶段条件行动概率与环境转移概率的乘积。若首步Inspect发生概率改变，即使第二步条件概率完全不变，轨迹概率也会改变。
+
+**题三：** 旧策略对某条目标策略可能产生的轨迹赋予概率零，会发生什么？
+
+**解：** 重要性比率分母为零，不能使用该恒等式从旧样本无偏估计目标策略在这条轨迹上的贡献。这是支持集覆盖条件。
+
+**题四：** 模型是否只要学会“先检查”就一定获得0.9期望收益？
+
+**解：** 不一定。0.9的上界还要求检查后的行动能正确利用观测；如果第二步仍随机猜测，Inspect路径的期望收益只有0.4。
 
 
 ## 工程中的训练数据与安全验证
@@ -655,11 +891,11 @@ python examples/tiny_lm_sft_dpo.py
 
 **解：**
 
-$$
+\begin{equation*}
 d_\theta=
 \log(0.6/0.4)-\log(0.2/0.8)
 =\log1.5-\log0.25=\log6.
-$$
+\end{equation*}
 
 若 $\beta=1$，单样本DPO损失是 $-\log\sigma(\log6)=-\log(6/7)=\log(7/6)$。
 
