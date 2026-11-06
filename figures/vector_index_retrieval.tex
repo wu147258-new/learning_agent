@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,rounded corners,fill=blue!6,minimum width=25mm,minimum height=12mm,align=center}]
+\node[b](doc) at (0,0){文档分块\\版本与租户};
+\node[b](embed) at (3.6,0){向量化\\$f(d)\in\mathbb R^k$};
+\node[b](index) at (7.2,0){ANN索引\\倒排或图结构};
+\node[b](search) at (10.8,0){授权候选\\Top-$K$};
+\node[b](rank) at (14.4,0){重排序\\证据选择};
+\foreach \x/\y in {doc/embed,embed/index,index/search,search/rank}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of index,align=center,text=accent]{近似搜索质量与租户过滤同时验收；语义相似不等于事实支持};
+\end{tikzpicture}

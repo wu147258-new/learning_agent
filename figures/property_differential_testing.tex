@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=29mm,minimum height=12mm,align=center}]
+\node[b](input) at (0,0){生成小规模输入\\确定性Seed};
+\node[b](impl) at (4,1.4){被测优化实现\\候选算法};
+\node[b](oracle) at (4,-1.4){可信精确实现\\参考Oracle};
+\node[b](diff) at (9,0){比较不变量\\差分与变形};
+\draw[->,thick,deepblue](input)--(impl);\draw[->,thick,deepblue](input)--(oracle);
+\draw[->,thick,deepblue](impl)--(diff);\draw[->,thick,deepblue](oracle)--(diff);
+\node[below=9mm of diff,align=center,text=accent]{只检查“程序未崩溃”远远不足以验证算法正确性};
+\end{tikzpicture}

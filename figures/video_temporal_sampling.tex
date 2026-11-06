@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ box/.style={draw=deepblue,rounded corners,fill=blue!4,minimum width=29mm,minimum height=13mm,align=center},
+ arr/.style={->,thick,deepblue}]
+\node[box] (vid) at (0,0) {时间线\\帧$F_0,F_1,F_2,\dots$};
+\node[box] (sample) at (4,0) {按时间戳采样\\跳过冗余帧};
+\node[box] (patch) at (8,0) {空间Patch\\每帧$N_p$个};
+\node[box] (merge) at (12,0) {时空Token\\时间、行、列坐标};
+\draw[arr] (vid)--(sample);\draw[arr] (sample)--(patch);\draw[arr] (patch)--(merge);
+\node[below=10mm of patch,align=center,text=accent]{采样率改变事件可见性；压缩率改变输入序列长度};
+\end{tikzpicture}

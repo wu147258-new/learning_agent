@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=30mm,minimum height=12mm,align=center}]
+\node[b](x) at (0,0){输入$x$\\维度$d_{\mathrm{in}}$};
+\node[b](base) at (4,1.4){冻结主矩阵\\$Wx$};
+\node[b](lora) at (4,-1.4){低秩支路\\$BAx$};
+\node[b](sum) at (9,0){输出\\$Wx+\alpha BAx/r$};
+\draw[->,thick,deepblue](x)--(base);\draw[->,thick,deepblue](x)--(lora);
+\draw[->,thick,deepblue](base)--(sum);\draw[->,thick,deepblue](lora)--(sum);
+\node[below=9mm of sum,align=center,text=accent]{冻结主矩阵减少可训练参数；但激活、KV与计算成本仍需计算};
+\end{tikzpicture}

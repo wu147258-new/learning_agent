@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum height=12mm,minimum width=27mm,align=center}]
+\node[b](r) at (0,0){请求到达\\不同长度};
+\node[b](pref) at (4,0){Prefill队列\\长prompt};
+\node[b](dec) at (8,0){Decode调度\\每轮1 Token};
+\node[b](kv) at (12,0){KV页池\\释放和复用};
+\foreach \x/\y in {r/pref,pref/dec,dec/kv}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of dec,align=center,text=accent]{吞吐、首Token延迟与P95不能只凭单请求基准判断};
+\end{tikzpicture}

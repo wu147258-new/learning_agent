@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ n/.style={draw=deepblue,rounded corners,fill=blue!6,minimum width=25mm,minimum height=12mm,align=center}]
+\node[n] (s0) at (0,0) {状态$s_t$\\价值$V_t$};
+\node[n] (s1) at (4,0) {奖励$r_t$\\状态$s_{t+1}$};
+\node[n] (s2) at (8,0) {下一步奖励$r_{t+1}$\\价值$V_{t+2}$};
+\node[n] (a) at (4,-2.3) {时间差误差\\$\delta_t=r_t+\gamma V_{t+1}-V_t$};
+\node[n] (gae) at (9,-2.3) {GAE递推\\$A_t=\delta_t+\gamma\lambda A_{t+1}$};
+\draw[->,thick,deepblue](s0)--(s1);\draw[->,thick,deepblue](s1)--(s2);
+\draw[->,thick,deepblue](s1)--(a);\draw[->,thick,deepblue](a)--(gae);
+\node[below=8mm of gae,align=center,text=accent]{仅真实终止切断bootstrap；时间截断需保留末状态价值};
+\end{tikzpicture}

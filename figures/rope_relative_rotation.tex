@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,rounded corners,fill=blue!5,minimum width=26mm,minimum height=12mm,align=center}]
+\node[b] (xy) at (0,0) {原始向量\\$x\in\mathbb R^d$};
+\node[b] (pairs) at (4,0) {成对维度\\$(x_{2j},x_{2j+1})$};
+\node[b] (rotate) at (8,0) {按位置旋转\\$R(m\theta_j)$};
+\node[b] (att) at (12,0) {注意力内积\\$q_m^\top k_n$};
+\draw[->,thick,deepblue] (xy)--(pairs);
+\draw[->,thick,deepblue] (pairs)--(rotate);
+\draw[->,thick,deepblue] (rotate)--(att);
+\node[below=10mm of rotate,align=center,text=accent] {$R(m\theta)^\top R(n\theta)=R((n-m)\theta)$\\差值来自旋转矩阵的群性质};
+\end{tikzpicture}

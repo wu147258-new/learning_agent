@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=28mm,minimum height=12mm,align=center}]
+\node[b](prompt) at (0,0){同一提示$x$\\两个候选};
+\node[b](pref) at (4,0){偏好标注\\$y^+\succ y^-$};
+\node[b](ratio) at (8,0){参考模型对照\\log概率差};
+\node[b](loss) at (12,0){DPO目标\\$-\log\sigma(\beta\Delta)$};
+\foreach \x/\y in {prompt/pref,pref/ratio,ratio/loss}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of ratio,align=center,text=accent]{偏好数据只覆盖被比较的候选；并不自动给出完整真实奖励};
+\end{tikzpicture}

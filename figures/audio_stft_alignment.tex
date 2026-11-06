@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ n/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=29mm,minimum height=12mm,align=center}]
+\node[n](wave) at (0,0){波形$x[n]$\\采样率$f_s$};
+\node[n](frame) at (4,0){短时窗\\STFT};
+\node[n](mel) at (8,0){频谱/Mel\\时间特征};
+\node[n](align) at (12,0){语言/视频对齐\\统一时间轴};
+\foreach \x/\y in {wave/frame,frame/mel,mel/align}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of frame,align=center,text=accent] {窗口长度与步长决定时间分辨率和频率分辨率};
+\end{tikzpicture}

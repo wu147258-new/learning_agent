@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ n/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=25mm,minimum height=11mm,align=center}]
+\node[n](issue) at (0,0){失败测试\\与复现种子};
+\node[n](trace) at (3.5,0){定位代码\\证据与版本};
+\node[n](patch) at (7,0){受限补丁\\白名单路径};
+\node[n](test) at (10.5,0){独立回归\\失败则回退};
+\node[n](commit) at (14,0){批准提交\\审计事件};
+\foreach \x/\y in {issue/trace,trace/patch,patch/test,test/commit}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of patch,align=center,text=accent]{补丁通过最小测试$\not\Rightarrow$整库安全；应有独立测试与版本CAS};
+\end{tikzpicture}

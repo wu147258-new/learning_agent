@@ -1,0 +1,9 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,rounded corners,fill=blue!6,minimum width=30mm,minimum height=12mm,align=center}]
+\node[b](old) at (0,0){历史采样分布\\$\mu(a\mid s)$};
+\node[b](traj) at (4,0){固定轨迹\\$(s,a,r)$};
+\node[b](ratio) at (8,0){重要性比值\\$\rho=\pi(a\mid s)/\mu(a\mid s)$};
+\node[b](obj) at (12,0){校正后的统计\\均值与有效样本量};
+\draw[->,thick,deepblue](old)--(traj);\draw[->,thick,deepblue](traj)--(ratio);\draw[->,thick,deepblue](ratio)--(obj);
+\node[below=9mm of ratio,align=center,text=accent]{若$\mu(a\mid s)=0$而$\pi(a\mid s)>0$，无法用旧数据覆盖新动作};
+\end{tikzpicture}

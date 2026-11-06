@@ -1,0 +1,11 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,align=center,minimum width=28mm,minimum height=12mm}]
+\node[b](p) at (0,0){提出工具动作\\Proposal};
+\node[b](a) at (4,0){权限与版本检查\\Authorize};
+\node[b](e) at (8,0){工具执行\\Execute};
+\node[b](v) at (12,0){独立结果验证\\Verify};
+\draw[->,thick,deepblue](p)--(a);\draw[->,thick,deepblue](a)--(e);\draw[->,thick,deepblue](e)--(v);
+\node[b](x) at (8,-2.4){未知结果处理\\Query/Reconcile};
+\draw[->,thick,accent](e)--node[right]{超时}(x);
+\draw[->,thick,accent](x)--node[below]{查询确认后重试}(a);
+\end{tikzpicture}

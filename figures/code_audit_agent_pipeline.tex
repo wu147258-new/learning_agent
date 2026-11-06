@@ -1,0 +1,10 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=26mm,minimum height=12mm,align=center}]
+\node[b](src) at (0,0){代码快照\\仓库Commit};
+\node[b](scan) at (3.6,0){静态候选\\规则与数据流};
+\node[b](verify) at (7.2,0){上下文验证\\入口到危险汇点};
+\node[b](risk) at (10.8,0){严重性评估\\可利用条件};
+\node[b](report) at (14.4,0){证据报告\\文件/行/修复};
+\foreach \x/\y in {src/scan,scan/verify,verify/risk,risk/report}{\draw[->,thick,deepblue](\x)--(\y);}
+\node[below=9mm of verify,align=center,text=accent]{语法命中只是候选；真实可利用性需要确认数据流和前置条件};
+\end{tikzpicture}

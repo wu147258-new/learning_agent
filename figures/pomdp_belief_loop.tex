@@ -1,0 +1,16 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\small,node distance=15mm,
+ state/.style={draw=deepblue,rounded corners,fill=blue!6,align=center,minimum width=29mm,minimum height=12mm},
+ info/.style={draw=accent,rounded corners,fill=orange!8,align=center,minimum width=30mm,minimum height=12mm},
+ arr/.style={->,thick,deepblue}]
+\node[state] (s) {隐藏状态\\$S_t$};
+\node[info,right=19mm of s] (obs) {传感观测\\$O_t$};
+\node[state,below=17mm of obs] (bel) {信念分布\\$b_t(s)$};
+\node[state,left=19mm of bel] (act) {动作选择\\$A_t$};
+\node[state,left=17mm of s] (next) {下一状态\\$S_{t+1}$};
+\draw[arr] (s)--node[above]{观测模型}(obs);
+\draw[arr] (obs)--node[right]{贝叶斯更新}(bel);
+\draw[arr] (bel)--node[below]{基于信念}(act);
+\draw[arr] (act)--node[left]{控制}(next);
+\draw[arr] (next)--(s);
+\node[below=9mm of act,align=center,text=deepblue] {可观测历史$H_t=(O_0,A_0,\ldots,O_t)$\\不是隐藏状态本身};
+\end{tikzpicture}

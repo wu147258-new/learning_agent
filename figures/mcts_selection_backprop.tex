@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ s/.style={draw=deepblue,fill=blue!5,rounded corners,minimum width=25mm,minimum height=10mm,align=center}]
+\node[s](root) at (5,2){根节点\\Agent当前状态};
+\node[s](a) at (1.7,0){动作A\\访问$N_A$次};
+\node[s](b) at (8.3,0){动作B\\访问$N_B$次};
+\node[s](a1) at (0,-2.3){结果A1\\回传奖励};
+\node[s](a2) at (3.5,-2.3){结果A2\\回传奖励};
+\node[s](b1) at (7,-2.3){结果B1\\回传奖励};
+\node[s](b2) at (10.5,-2.3){结果B2\\回传奖励};
+\foreach \u/\v in {root/a,root/b,a/a1,a/a2,b/b1,b/b2}{\draw[->,thick,deepblue](\u)--(\v);}
+\node[below=9mm of b1,align=center,text=accent] {访问次数平衡探索与利用；模拟回报不等于真实世界授权};
+\end{tikzpicture}
