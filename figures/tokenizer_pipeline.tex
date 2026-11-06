@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!5,rounded corners,minimum height=11mm,minimum width=28mm,align=center},
+ a/.style={->,thick,deepblue}]
+\node[b] (text) at (0,0) {原始文本\\UTF-8字节};
+\node[b] (norm) at (3.6,0) {规范化\\空格与Unicode};
+\node[b] (tok) at (7.2,0) {分词器\\Merge或Unigram};
+\node[b] (id) at (10.8,0) {词元ID\\离散序列};
+\node[b] (emb) at (14.4,0) {嵌入表查找\\$E\in\mathbb R^{V\times d}$};
+\draw[a] (text)--(norm); \draw[a] (norm)--(tok);
+\draw[a] (tok)--(id); \draw[a] (id)--(emb);
+\node[below=9mm of tok,align=center,text=accent] {文本长度$\ne$词元数；位置编码处理的是词元序列位置};
+\end{tikzpicture}
