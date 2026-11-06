@@ -43,6 +43,10 @@ jobs:
           python3 examples/speculative_decoding_lab.py
           python3 examples/agent_runtime_recovery.py
           python3 examples/durable_agent_queue_lab.py
+          python3 examples/attention_runtime_oracle.py
+          python3 examples/sft_data_loss_pipeline.py
+          python3 examples/dpo_gradient_oracle.py
+          python3 examples/protocol_version_boundaries.py
           python3 examples/multiagent_coordinator.py
           python3 examples/agent_eval_security_lab.py
           python3 examples/beginner_tool_agent.py run
