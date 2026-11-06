@@ -1,0 +1,12 @@
+\begin{tikzpicture}[>=Stealth,font=\sffamily\scriptsize,
+ b/.style={draw=deepblue,fill=blue!6,rounded corners,minimum width=28mm,minimum height=12mm,align=center}]
+\node[b](user) at (0,0){可信用户请求\\身份与权限};
+\node[b](model) at (4,0){模型提出动作\\不可信建议};
+\node[b](policy) at (8,0){策略决策点\\Policy Decision};
+\node[b](tool) at (12,0){执行工具\\最小权限};
+\draw[->,thick,deepblue](user)--(model);\draw[->,thick,deepblue](model)--(policy);
+\draw[->,thick,deepblue](policy)--node[above]{许可时}(tool);
+\node[b](retrieve) at (4,-2.4){检索文档/网页\\不可信内容};
+\draw[->,thick,accent](retrieve)--(model);
+\node[below=8mm of policy,align=center,text=accent]{外部内容不具有提升权限的能力};
+\end{tikzpicture}
